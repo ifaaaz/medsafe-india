@@ -1,0 +1,23 @@
+# Environment variables (contains API keys & DB passwords)
+.env
+.env.*
+backend/.env
+frontend/.env
+
+# Python virtual environment & cache
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Node & Vite build artifacts
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+
+# OS & editor files
+.DS_Store
+Thumbs.db
+.vscode/
