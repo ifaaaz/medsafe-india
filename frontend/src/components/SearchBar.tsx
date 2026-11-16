@@ -32,7 +32,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearchResult }) => {
 
     try {
       // 2. FETCH DIRECTLY FROM FASTAPI BACKEND
-      const response = await fetch("http://localhost:8000/api/v1/prescription/upload", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/v1/prescription/upload`, {
         method: "POST",
         body: formData, // Do NOT manually set Content-Type header when passing FormData
       });

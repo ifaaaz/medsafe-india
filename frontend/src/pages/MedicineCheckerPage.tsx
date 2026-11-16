@@ -26,7 +26,7 @@ export const MedicineCheckerPage: React.FC = () => {
 
     try {
       const response = await fetch(
-        `http://localhost:8000/medicines/lookup?q=${encodeURIComponent(searchText)}`
+        `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/medicines/lookup?q=${encodeURIComponent(searchText)}`
       );
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));

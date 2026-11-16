@@ -24,7 +24,7 @@ export const MyMedicinesPage: React.FC = () => {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/v1/history/');
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/v1/history/`);
       if (res.ok) {
         const data = await res.json();
         setHistory(data);
@@ -63,7 +63,7 @@ export const MyMedicinesPage: React.FC = () => {
 
   const handleDeleteItem = async (id: number) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/history/${id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/v1/history/${id}`, {
         method: 'DELETE',
       });
       if (res.ok) {
@@ -77,7 +77,7 @@ export const MyMedicinesPage: React.FC = () => {
   const handleClearAll = async () => {
     if (!window.confirm('Clear all recorded medication history?')) return;
     try {
-      const res = await fetch('http://localhost:8000/api/v1/history/', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/v1/history/`, {
         method: 'DELETE',
       });
       if (res.ok) {
@@ -98,7 +98,7 @@ export const MyMedicinesPage: React.FC = () => {
       .filter(Boolean);
 
     try {
-      const res = await fetch('http://localhost:8000/api/v1/history/', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/v1/history/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

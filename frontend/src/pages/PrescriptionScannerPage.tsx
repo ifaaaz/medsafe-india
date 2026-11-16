@@ -58,7 +58,7 @@ export const PrescriptionScannerPage: React.FC = () => {
       });
 
       try {
-        const response = await fetch("http://localhost:8000/api/v1/interactions/check-regimen", {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/v1/interactions/check-regimen`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ active_ingredients: allIngredients }),
