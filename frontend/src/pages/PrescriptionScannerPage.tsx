@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { IndianRupee } from 'lucide-react';
 import { SearchBar } from '../components/SearchBar';
 import { MedicineCard } from '../components/MedicineCard';
 import { InteractionCard } from '../components/InteractionCard';
 import { StatusBadge } from '../components/StatusBadge';
+import { CaregiverAudioSummary } from '../components/CaregiverAudioSummary';
+import { LifestyleConditionChecker } from '../components/LifestyleConditionChecker';
 
 interface PrescriptionRecord {
   id: number;
@@ -12,6 +16,7 @@ interface PrescriptionRecord {
 }
 
 export const PrescriptionScannerPage: React.FC = () => {
+  const navigate = useNavigate();
   const [prescriptions, setPrescriptions] = useState<PrescriptionRecord[]>([]);
   const [combinedAnalysis, setCombinedAnalysis] = useState<any>(null);
   const [checkingInteractions, setCheckingInteractions] = useState<boolean>(false);
@@ -36,6 +41,26 @@ export const PrescriptionScannerPage: React.FC = () => {
   const handleClearAll = () => {
     setPrescriptions([]);
     setCombinedAnalysis(null);
+  };
+
+  const allDetectedBrands = Array.from(
+    new Set(
+      prescriptions.flatMap((rx) =>
+        rx.medicines
+          .map((med: any) =>
+            typeof med === 'string'
+              ? med
+              : med.brand_name || med.name || med.medicine_name || med.generic_name
+          )
+          .filter(Boolean)
+      )
+    )
+  );
+
+  const handleCompareGenericPrices = () => {
+    navigate('/generic-saver', {
+      state: { medicines: allDetectedBrands },
+    });
   };
 
   useEffect(() => {
@@ -80,7 +105,7 @@ export const PrescriptionScannerPage: React.FC = () => {
 
   return (
     <div className="container mx-auto p-6 max-w-5xl">
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">MedSafe India - Multi-Prescription Safety Checker</h1>
           <p className="text-sm text-gray-600">
@@ -88,12 +113,26 @@ export const PrescriptionScannerPage: React.FC = () => {
           </p>
         </div>
         {prescriptions.length > 0 && (
-          <button
-            onClick={handleClearAll}
-            className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50"
-          >
-            Clear All Prescriptions
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCompareGenericPrices}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700 shadow-sm transition"
+            >
+              <IndianRupee className="w-4 h-4" />
+              <span>
+                {allDetectedBrands.length > 0
+                  ? `Compare Generic Prices (${allDetectedBrands.length})`
+                  : 'Compare Generic Prices'}
+              </span>
+            </button>
+            <button
+              onClick={handleClearAll}
+              className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50"
+            >
+              Clear All Prescriptions
+            </button>
+          </div>
         )}
       </div>
 
@@ -109,7 +148,7 @@ export const PrescriptionScannerPage: React.FC = () => {
 
       {/* Combined Cross-Prescription Safety Alert Banner */}
       {combinedAnalysis && (
-        <div className="mb-8 p-5 rounded-xl border bg-white shadow-sm space-y-4">
+        <div className="mb-8 p-5 rounded-xl border bg-white shadow-sm space-y-5">
           <div className="flex items-center justify-between border-b pb-3">
             <div>
               <h2 className="text-lg font-bold text-gray-800">
@@ -143,6 +182,17 @@ export const PrescriptionScannerPage: React.FC = () => {
               ))}
             </div>
           )}
+
+          {/* Food Timing, Alcohol & Condition Warning Toggle Pills */}
+          <LifestyleConditionChecker medicines={allDetectedBrands} />
+
+          {/* Multilingual Caregiver Voice Readout (English, Kannada, Hindi) */}
+          <CaregiverAudioSummary
+            medicines={allDetectedBrands}
+            safetyStatus={combinedAnalysis.safety_status}
+            interactionsCount={combinedAnalysis.total_interactions_found || 0}
+            interactions={combinedAnalysis.interactions || []}
+          />
         </div>
       )}
 

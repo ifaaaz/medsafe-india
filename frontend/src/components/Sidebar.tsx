@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Search, FileText, Pill, Info } from 'lucide-react';
+import { Search, FileText, Pill, Info, IndianRupee } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
 export const Sidebar: React.FC = () => {
@@ -32,6 +32,10 @@ export const Sidebar: React.FC = () => {
         <Link to="/my-medicines" className={linkClass('/my-medicines')}>
           <Pill className="w-5 h-5" />
           <span>{t.myMedicines}</span>
+        </Link>
+        <Link to="/generic-saver" className={linkClass('/generic-saver')}>
+          <IndianRupee className="w-5 h-5" />
+          <span>{(t as any).genericSaver || 'Generic Cost Saver'}</span>
         </Link>
         <Link to="/safety" className={linkClass('/safety')}>
           <Info className="w-5 h-5" />

@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from google import genai
 from google.genai import types
+from google.genai.errors import APIError
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -18,10 +19,17 @@ load_dotenv()
 
 router = APIRouter(prefix="/medicines", tags=["Medicines"])
 
+api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY"),
+    api_key=api_key,
     http_options={"api_version": "v1beta"}
-)
+) if api_key else None
+
+# Each model has its own independent daily free-tier quota
+FALLBACK_MODELS = [
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash",
+]
 
 
 class MedicineUsesSchema(BaseModel):
@@ -37,6 +45,31 @@ class MedicineUsesSchema(BaseModel):
 
 def normalize_name(text: str) -> str:
     return re.sub(r'[^a-z0-9]', '', text.lower()) if text else ""
+
+
+def generate_with_fallback(prompt: str) -> MedicineUsesSchema:
+    if not client:
+        raise RuntimeError("GEMINI_API_KEY is missing in environment variables.")
+
+    last_error = None
+    for model_name in FALLBACK_MODELS:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=MedicineUsesSchema,
+                    temperature=0.1,
+                ),
+            )
+            return MedicineUsesSchema.model_validate_json(response.text)
+        except APIError as e:
+            if e.code in (429, 404, 503):
+                last_error = e
+                continue
+            raise
+    raise last_error
 
 
 @router.get("/search")
@@ -72,7 +105,6 @@ def lookup_medicine_uses(
     if db_brand and db_brand.therapeutic_uses:
         ings = [ing.name for ing in db_brand.ingredients] or ([db_brand.generic_name] if db_brand.generic_name else [])
         
-        # Automatically record lookup in user history
         log_medicine_to_history(
             db=db,
             brand_name=db_brand.brand_name,
@@ -100,16 +132,7 @@ def lookup_medicine_uses(
     """
 
     try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=MedicineUsesSchema,
-                temperature=0.1,
-            ),
-        )
-        ai_data = MedicineUsesSchema.model_validate_json(response.text)
+        ai_data = generate_with_fallback(prompt)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI lookup failed: {str(e)}")
 
@@ -146,7 +169,6 @@ def lookup_medicine_uses(
 
     db.commit()
 
-    # Automatically record lookup in user history
     log_medicine_to_history(
         db=db,
         brand_name=db_brand.brand_name,

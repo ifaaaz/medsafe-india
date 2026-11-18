@@ -4,7 +4,7 @@ import json
 import pytesseract
 from PIL import Image, ImageEnhance, ImageOps
 from rapidfuzz import process, fuzz
-from typing import List, Dict, Any
+from typing import List, Dict
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from sqlalchemy.orm import Session
@@ -14,6 +14,10 @@ from app.models.medicine import MedicineBrand, ActiveIngredient
 from app.models.interaction import DrugInteraction
 from app.services.ai_fallback_service import resolve_and_learn_from_ocr
 from app.api.v1.endpoints.history import log_medicine_to_history
+from app.api.v1.endpoints.interactions import (
+    detect_duplicate_ingredients,
+    analyze_interactions_with_ai,
+)
 
 # Configure Tesseract binary path for Windows
 TESSERACT_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -94,12 +98,15 @@ async def upload_and_analyze_prescription(
 
         matched_list = list(matched_brands.values())
         active_ingredients_map = {}
+        all_scanned_ingredient_names = []
         detected_summary = []
 
         for brand in matched_list:
             brand_ings = [ing.name for ing in brand.ingredients]
             if not brand_ings and brand.generic_name:
                 brand_ings = [brand.generic_name]
+
+            all_scanned_ingredient_names.extend(brand_ings)
 
             detected_summary.append({
                 "brand_name": brand.brand_name,
@@ -108,7 +115,6 @@ async def upload_and_analyze_prescription(
                 "active_ingredients": brand_ings
             })
 
-            # Automatically record scanned medicine in user history
             log_medicine_to_history(
                 db=db,
                 brand_name=brand.brand_name,
@@ -124,8 +130,11 @@ async def upload_and_analyze_prescription(
 
         resolved_ings = list(active_ingredients_map.values())
 
-        # 3. Interaction check logic
-        interactions = []
+        # 3a. Flag duplicate active ingredients across scanned brands (e.g., Dolo 650 + Combiflam)
+        interactions = detect_duplicate_ingredients(all_scanned_ingredient_names)
+
+        # 3b. Check pairwise interactions in local PostgreSQL DB
+        db_pair_found = False
         ing_ids = [ing.id for ing in resolved_ings]
         for i in range(len(ing_ids)):
             for j in range(i + 1, len(ing_ids)):
@@ -133,6 +142,7 @@ async def upload_and_analyze_prescription(
                 id_b = max(ing_ids[i], ing_ids[j])
                 record = db.query(DrugInteraction).filter_by(ingredient_a_id=id_a, ingredient_b_id=id_b).first()
                 if record:
+                    db_pair_found = True
                     ing_a = db.query(ActiveIngredient).filter_by(id=id_a).first()
                     ing_b = db.query(ActiveIngredient).filter_by(id=id_b).first()
                     interactions.append({
@@ -143,6 +153,19 @@ async def upload_and_analyze_prescription(
                         "clinical_effect": record.clinical_effect,
                         "management_information": record.management_information
                     })
+
+        # 3c. AI Clinical Interaction Fallback for pairs not seeded in local SQL table
+        unique_ingredient_names = list({name.strip().title() for name in all_scanned_ingredient_names if name.strip()})
+        if not db_pair_found and len(unique_ingredient_names) >= 2:
+            for ai_item in analyze_interactions_with_ai(unique_ingredient_names):
+                interactions.append({
+                    "ingredient_a": ai_item.ingredient_a,
+                    "ingredient_b": ai_item.ingredient_b,
+                    "severity": ai_item.severity,
+                    "interaction_description": ai_item.interaction_description,
+                    "clinical_effect": ai_item.clinical_effect,
+                    "management_information": ai_item.management_information
+                })
 
         has_critical = any(item["severity"].lower() in ["major", "severe", "critical"] for item in interactions)
         has_moderate = any(item["severity"].lower() in ["moderate", "warning"] for item in interactions)
@@ -162,7 +185,7 @@ async def upload_and_analyze_prescription(
             "safety_status": safety_status,
             "raw_ocr_lines": raw_lines,
             "detected_medicines": detected_summary,
-            "resolved_active_ingredients": [ing.name for ing in resolved_ings],
+            "resolved_active_ingredients": unique_ingredient_names,
             "total_interactions_found": len(interactions),
             "interactions": interactions,
             "disclaimer": "MedSafe India clinical decision support tool. Always consult a physician."

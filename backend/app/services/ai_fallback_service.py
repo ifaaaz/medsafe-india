@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from google import genai
 from google.genai import types
+from google.genai.errors import APIError
 from sqlalchemy.orm import Session
 
 from app.models.medicine import MedicineBrand, ActiveIngredient
@@ -12,14 +13,15 @@ from app.models.interaction import DrugInteraction
 
 load_dotenv()
 
-# Initialize Gemini client with v1beta so JSON structured output is enabled
+api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY"),
+    api_key=api_key,
     http_options={"api_version": "v1beta"}
-)
+) if api_key else None
+
+FALLBACK_MODELS = ["gemini-2.5-flash-lite", "gemini-2.5-flash"]
 
 
-# --- Structured Output Schemas ---
 class ExtractedMedicine(BaseModel):
     brand_name: str = Field(description="Commercial brand name of the medicine, e.g., Augmentin 625")
     generic_name: str = Field(description="Generic composition name")
@@ -48,6 +50,31 @@ def normalize_name(text: str) -> str:
     return re.sub(r'[^a-z0-9]', '', text.lower()) if text else ""
 
 
+def _generate_ocr_analysis(prompt: str) -> ClinicalFallbackResponse:
+    if not client:
+        raise RuntimeError("GEMINI_API_KEY is missing in environment variables.")
+
+    last_error = None
+    for model_name in FALLBACK_MODELS:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=ClinicalFallbackResponse,
+                    temperature=0.1,
+                ),
+            )
+            return ClinicalFallbackResponse.model_validate_json(response.text)
+        except APIError as e:
+            if e.code in (429, 404, 503):
+                last_error = e
+                continue
+            raise
+    raise last_error
+
+
 def resolve_and_learn_from_ocr(
     raw_ocr_text: str,
     existing_patient_ingredients: List[str],
@@ -69,17 +96,7 @@ def resolve_and_learn_from_ocr(
     3. Check for clinically significant drug-drug interactions among ALL extracted active ingredients AND this list of existing medications the patient is already taking: {existing_patient_ingredients}.
     """
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=ClinicalFallbackResponse,
-            temperature=0.1,
-        ),
-    )
-
-    parsed_data = ClinicalFallbackResponse.model_validate_json(response.text)
+    parsed_data = _generate_ocr_analysis(prompt)
     saved_medicines_output = []
 
     # 1. Auto-save newly discovered Active Ingredients & Medicine Brands

@@ -11,6 +11,7 @@ import { MyMedicinesPage } from './pages/MyMedicinesPage';
 import { MedicineDetailsPage } from './pages/MedicineDetailsPage';
 import { InteractionResultsPage } from './pages/InteractionResultsPage';
 import { SafetyPage } from './pages/SafetyPage';
+import { JanAushadhiSaver } from './pages/JanAushadhiSaver';
 
 export function App() {
   return (
@@ -28,6 +29,7 @@ export function App() {
                 <Route path="/my-medicines" element={<MyMedicinesPage />} />
                 <Route path="/medicines/:id" element={<MedicineDetailsPage />} />
                 <Route path="/interactions" element={<InteractionResultsPage />} />
+                <Route path="/generic-saver" element={<JanAushadhiSaver />} />
                 <Route path="/safety" element={<SafetyPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
