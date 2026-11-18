@@ -15,6 +15,41 @@ interface CaregiverAudioSummaryProps {
 
 type SupportedLang = 'en-IN' | 'kn-IN' | 'hi-IN';
 
+// Phonetic transliteration map so Kannada & Hindi TTS engines read medicine names natively
+const MEDICINE_TRANSLITERATIONS: Record<string, { kn: string; hi: string }> = {
+  'dolo 650': { kn: 'ಡೋಲೋ ೬೫೦', hi: 'डोलो 650' },
+  'combiflam': { kn: 'ಕಾಂಬಿಫ್ಲಾಮ್', hi: 'कॉम्बिफ्लाम' },
+  'telma 40': { kn: 'ಟೆಲ್ಮಾ ೪೦', hi: 'टेल्मा 40' },
+  'pan-d': { kn: 'ಪ್ಯಾನ್ ಡಿ', hi: 'पैन-डी' },
+  'pantop 40': { kn: 'ಪ್ಯಾಂಟಾಪ್ ೪೦', hi: 'पैंटॉप 40' },
+  'ecosprin 75': { kn: 'ಇಕೋಸ್ಪ್ರಿನ್ ೭೫', hi: 'इकोस्प्रिन 75' },
+  'acitrom 2': { kn: 'ಅಸಿಟ್ರೋಮ್ ೨', hi: 'एसिट्रॉम 2' },
+  'augmentin 625': { kn: 'ಆಗ್ಮೆಂಟಿನ್ ೬೨೫', hi: 'ऑगमेंटिन 625' },
+  'atorva 20': { kn: 'ಅಟೋರ್ವಾ ೨೦', hi: 'अटोर्वा 20' },
+  'clopilet 75': { kn: 'ಕ್ಲೋಪಿಲೆಟ್ ೭೫', hi: 'क्लोपिलेट 75' },
+  'zerodol-sp': { kn: 'ಝೀರೋಡಾಲ್ ಎಸ್ ಪಿ', hi: 'ज़ीरोडॉल-एसपी' },
+  'flagyl 400': { kn: 'ಫ್ಲಾಜಿಲ್ ೪೦೦', hi: 'फ्लैजिल 400' },
+  'omez 20': { kn: 'ಓಮೆಜ್ ೨೦', hi: 'ओमेज़ 20' },
+  'azithral 500': { kn: 'ಅಜಿತ್ರಾಲ್ ೫೦೦', hi: 'अज़िथ्रल 500' },
+  'montair lc': { kn: 'ಮಾಂಟೇರ್ ಎಲ್ ಸಿ', hi: 'मॉन्टेर एलसी' },
+};
+
+function localizeMedicineList(medicines: string[], lang: SupportedLang): string {
+  if (lang === 'en-IN') return medicines.join(', ');
+
+  return medicines
+    .map((med) => {
+      const lower = med.toLowerCase();
+      for (const [key, scripts] of Object.entries(MEDICINE_TRANSLITERATIONS)) {
+        if (lower.includes(key)) {
+          return lang === 'kn-IN' ? scripts.kn : scripts.hi;
+        }
+      }
+      return med;
+    })
+    .join(', ');
+}
+
 export const CaregiverAudioSummary: React.FC<CaregiverAudioSummaryProps> = ({
   medicines,
   safetyStatus = 'SAFE',
@@ -24,47 +59,59 @@ export const CaregiverAudioSummary: React.FC<CaregiverAudioSummaryProps> = ({
   const [activeLang, setActiveLang] = useState<SupportedLang>('en-IN');
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
-  // Stop speech cleanly if component unmounts
   useEffect(() => {
-    return () => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
+    if (!('speechSynthesis' in window)) return;
+
+    const loadVoices = () => {
+      const available = window.speechSynthesis.getVoices();
+      if (available.length > 0) {
+        setVoices(available);
       }
+    };
+
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+
+    return () => {
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.onvoiceschanged = null;
     };
   }, []);
 
   if (medicines.length === 0) return null;
 
-  const medListText = medicines.join(', ');
-  const hasDanger = interactionsCount > 0 || safetyStatus.toUpperCase() === 'DANGER' || safetyStatus.toUpperCase() === 'WARNING';
+  const hasDanger =
+    interactionsCount > 0 ||
+    safetyStatus.toUpperCase() === 'DANGER' ||
+    safetyStatus.toUpperCase() === 'WARNING';
 
   const topConflict = interactions[0]
     ? `${interactions[0].ingredient_a} and ${interactions[0].ingredient_b}`
     : '';
 
-  // Plain-language Caregiver Summaries in English, Kannada, and Hindi
   const summaries: Record<SupportedLang, { label: string; badge: string; text: string }> = {
     'en-IN': {
       label: 'English',
       badge: 'EN',
       text: hasDanger
-        ? `Caregiver Alert: ${medicines.length} medicines were scanned: ${medListText}. Warning: ${interactionsCount} drug interaction detected${topConflict ? ` involving ${topConflict}` : ''}. Do not give these medicines together without consulting the doctor or pharmacist.`
-        : `Caregiver Summary: ${medicines.length} medicines were scanned: ${medListText}. Good news: no conflicting drug interactions were found. Give each tablet as prescribed after food unless instructed otherwise.`,
+        ? `Caregiver Alert: ${medicines.length} medicines were scanned: ${localizeMedicineList(medicines, 'en-IN')}. Warning: ${interactionsCount} drug interaction detected${topConflict ? ` involving ${topConflict}` : ''}. Do not give these medicines together without consulting the doctor or pharmacist.`
+        : `Caregiver Summary: ${medicines.length} medicines were scanned: ${localizeMedicineList(medicines, 'en-IN')}. Good news: no conflicting drug interactions were found. Give each tablet as prescribed after food unless instructed otherwise.`,
     },
     'kn-IN': {
       label: 'ಕನ್ನಡ (Kannada)',
       badge: 'KN',
       text: hasDanger
-        ? `ಆರೈಕೆದಾರರ ಎಚ್ಚರಿಕೆ: ಒಟ್ಟು ${medicines.length} ಔಷಧಿಗಳನ್ನು ಪರಿಶೀಲಿಸಲಾಗಿದೆ: ${medListText}. ಎಚ್ಚರಿಕೆ: ಈ ಔಷಧಿಗಳಲ್ಲಿ ${interactionsCount} ಅಡ್ಡಪರಿಣಾಮದ ಅಪಾಯ ಕಂಡುಬಂದಿದೆ. ವೈದ್ಯರು ಅಥವಾ ಔಷಧಿಕಾರರ ಸಲಹೆಯಿಲ್ಲದೆ ಇವುಗಳನ್ನು ಒಟ್ಟಿಗೆ ನೀಡಬೇಡಿ.`
-        : `ಆರೈಕೆದಾರರ ಸಾರಾಂಶ: ಒಟ್ಟು ${medicines.length} ಔಷಧಿಗಳನ್ನು ಪರಿಶೀಲಿಸಲಾಗಿದೆ: ${medListText}. ಯಾವುದೇ ಅಪಾಯಕಾರಿ ಔಷಧಿ ಸಂಘರ್ಷ ಕಂಡುಬಂದಿಲ್ಲ. ವೈದ್ಯರು ಸೂಚಿಸಿದಂತೆ ಆಹಾರದ ನಂತರ ನಿಯಮಿತವಾಗಿ ಔಷಧಿಗಳನ್ನು ನೀಡಿ.`,
+        ? `ಆರೈಕೆದಾರರ ಎಚ್ಚರಿಕೆ: ಒಟ್ಟು ${medicines.length} ಔಷಧಿಗಳನ್ನು ಪರಿಶೀಲಿಸಲಾಗಿದೆ: ${localizeMedicineList(medicines, 'kn-IN')}. ಎಚ್ಚರಿಕೆ: ಈ ಔಷಧಿಗಳಲ್ಲಿ ${interactionsCount} ಅಡ್ಡಪರಿಣಾಮದ ಅಪಾಯ ಕಂಡುಬಂದಿದೆ. ವೈದ್ಯರು ಅಥವಾ ಔಷಧಿಕಾರರ ಸಲಹೆಯಿಲ್ಲದೆ ಇವುಗಳನ್ನು ಒಟ್ಟಿಗೆ ನೀಡಬೇಡಿ.`
+        : `ಆರೈಕೆದಾರರ ಸಾರಾಂಶ: ಒಟ್ಟು ${medicines.length} ಔಷಧಿಗಳನ್ನು ಪರಿಶೀಲಿಸಲಾಗಿದೆ: ${localizeMedicineList(medicines, 'kn-IN')}. ಯಾವುದೇ ಅಪಾಯಕಾರಿ ಔಷಧಿ ಸಂಘರ್ಷ ಕಂಡುಬಂದಿಲ್ಲ. ವೈದ್ಯರು ಸೂಚಿಸಿದಂತೆ ಆಹಾರದ ನಂತರ ನಿಯಮಿತವಾಗಿ ಔಷಧಿಗಳನ್ನು ನೀಡಿ.`,
     },
     'hi-IN': {
       label: 'हिंदी (Hindi)',
       badge: 'HI',
       text: hasDanger
-        ? `देखभालकर्ता चेतावनी: कुल ${medicines.length} दवाइयों की जांच की गई है: ${medListText}. सावधान: इन दवाइयों के बीच ${interactionsCount} गंभीर रिएक्शन पाया गया है। डॉक्टर या फार्मासिस्ट की सलाह के बिना इन्हें एक साथ न दें।`
-        : `देखभालकर्ता सारांश: कुल ${medicines.length} दवाइयों की जांच की गई है: ${medListText}. अच्छी खबर: इन दवाइयों के बीच कोई हानिकारक रिएक्शन नहीं पाया गया है। डॉक्टर के निर्देशानुसार समय पर दवाइयां दें।`,
+        ? `देखभालकर्ता चेतावनी: कुल ${medicines.length} दवाइयों की जांच की गई है: ${localizeMedicineList(medicines, 'hi-IN')}. सावधान: इन दवाइयों के बीच ${interactionsCount} गंभीर रिएक्शन पाया गया है। डॉक्टर या फार्मासिस्ट की सलाह के बिना इन्हें एक साथ न दें।`
+        : `देखभालकर्ता सारांश: कुल ${medicines.length} दवाइयों की जांच की गई है: ${localizeMedicineList(medicines, 'hi-IN')}. अच्छी खबर: इन दवाइयों के बीच कोई हानिकारक रिएक्शन नहीं पाया गया है। डॉक्टर के निर्देशानुसार समय पर दवाइयां दें।`,
     },
   };
 
@@ -80,11 +127,16 @@ export const CaregiverAudioSummary: React.FC<CaregiverAudioSummaryProps> = ({
 
     const utterance = new SpeechSynthesisUtterance(summaries[lang].text);
     utterance.lang = lang;
-    utterance.rate = 0.92; // Slightly slower pace for elderly patients & caregivers
+    utterance.rate = 0.92;
 
-    // Prefer an exact regional voice if installed on Windows/Android
-    const voices = window.speechSynthesis.getVoices();
-    const matchedVoice = voices.find((v) => v.lang.toLowerCase().includes(lang.toLowerCase()));
+    const currentVoices = voices.length > 0 ? voices : window.speechSynthesis.getVoices();
+    const langPrefix = lang.split('-')[0].toLowerCase(); // 'kn', 'hi', or 'en'
+
+    const matchedVoice =
+      currentVoices.find((v) => v.lang.toLowerCase() === lang.toLowerCase()) ||
+      currentVoices.find((v) => v.lang.toLowerCase().startsWith(langPrefix)) ||
+      currentVoices.find((v) => v.name.toLowerCase().includes(langPrefix === 'kn' ? 'kannada' : langPrefix === 'hi' ? 'hindi' : 'india'));
+
     if (matchedVoice) {
       utterance.voice = matchedVoice;
     }
@@ -109,7 +161,7 @@ export const CaregiverAudioSummary: React.FC<CaregiverAudioSummaryProps> = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback ignored if clipboard blocked
+      // Clipboard blocked
     }
   };
 
@@ -162,7 +214,6 @@ export const CaregiverAudioSummary: React.FC<CaregiverAudioSummaryProps> = ({
         </div>
       </div>
 
-      {/* Readable Caregiver Script Box */}
       <div className="p-3 rounded-lg bg-white border border-indigo-100 flex items-start justify-between gap-3">
         <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
           {summaries[activeLang].text}
