@@ -1,12 +1,8 @@
-import os
 from collections import Counter
 from typing import List
 from itertools import combinations
-from dotenv import load_dotenv
 from pydantic import BaseModel, Field
-from google import genai
 from google.genai import types
-from google.genai.errors import APIError
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -15,18 +11,9 @@ from app.core.database import get_db
 from app.models.medicine import MedicineBrand, ActiveIngredient
 from app.models.interaction import DrugInteraction
 from app.schemas.interaction import InteractionCheckRequest, InteractionCheckResponse, InteractionFinding
-
-load_dotenv()
+from app.services.ai_fallback_service import generate_with_key_rotation
 
 router = APIRouter(prefix="/api/v1/interactions", tags=["Interactions"])
-
-api_key = os.getenv("GEMINI_API_KEY")
-client = genai.Client(
-    api_key=api_key,
-    http_options={"api_version": "v1beta"}
-) if api_key else None
-
-FALLBACK_MODELS = ["gemini-2.5-flash-lite", "gemini-2.5-flash"]
 
 
 class AIInteractionItem(BaseModel):
@@ -42,8 +29,75 @@ class AIInteractionList(BaseModel):
     interactions: List[AIInteractionItem]
 
 
+# Deterministic offline clinical interaction pairs (zero API quota needed if all 9 key/model buckets hit 429)
+OFFLINE_INTERACTION_RULES = [
+    {
+        "pair": {"aspirin", "acenocoumarol"},
+        "severity": "Major",
+        "interaction_description": "Concurrent use of Aspirin (antiplatelet) with Acenocoumarol (oral anticoagulant) markedly increases gastrointestinal and systemic bleeding risk.",
+        "clinical_effect": "Additive anticoagulant and antiplatelet inhibition leading to hemorrhage.",
+        "management_information": "Avoid combination unless explicitly directed by a cardiologist; monitor INR closely and add gastroprotection.",
+    },
+    {
+        "pair": {"aspirin", "ibuprofen"},
+        "severity": "Major",
+        "interaction_description": "Ibuprofen competitively blocks Aspirin's irreversible acetylation of platelet COX-1 and compounds gastric mucosal injury.",
+        "clinical_effect": "Reduced cardioprotective antiplatelet efficacy and elevated GI ulcer/bleeding risk.",
+        "management_information": "Separate dosing by at least 2 hours or substitute Paracetamol for analgesia.",
+    },
+    {
+        "pair": {"aspirin", "aceclofenac"},
+        "severity": "Major",
+        "interaction_description": "Dual NSAID/salicylate therapy significantly elevates the risk of peptic ulceration and gastrointestinal bleeding.",
+        "clinical_effect": "Synergistic COX-1 gastric mucosal irritation.",
+        "management_information": "Avoid overlapping systemic NSAIDs; consult prescribing physician.",
+    },
+    {
+        "pair": {"clopidogrel", "acenocoumarol"},
+        "severity": "Major",
+        "interaction_description": "Combined antiplatelet and oral anticoagulant therapy substantially increases major bleeding risk.",
+        "clinical_effect": "Dual pathway hemostasis inhibition.",
+        "management_information": "Requires specialist cardiology supervision, strict INR monitoring, and PPI gastroprotection.",
+    },
+    {
+        "pair": {"telmisartan", "ibuprofen"},
+        "severity": "Moderate",
+        "interaction_description": "NSAIDs can attenuate the antihypertensive effect of Telmisartan and impair renal prostaglandin-mediated blood flow.",
+        "clinical_effect": "Reduced blood pressure control and risk of acute kidney injury in dehydrated or elderly patients.",
+        "management_information": "Monitor blood pressure and renal function; prefer Paracetamol when appropriate.",
+    },
+    {
+        "pair": {"telmisartan", "aceclofenac"},
+        "severity": "Moderate",
+        "interaction_description": "Concurrent ARB and NSAID therapy reduces renal perfusion and blunts antihypertensive efficacy.",
+        "clinical_effect": "Elevated blood pressure and potential renal function decline.",
+        "management_information": "Use lowest effective NSAID dose for shortest duration and monitor BP.",
+    },
+]
+
+
+def _offline_interaction_fallback(ingredient_names: List[str]) -> List[AIInteractionItem]:
+    normalized = {ing.strip().lower() for ing in ingredient_names if ing and ing.strip()}
+    matched: List[AIInteractionItem] = []
+
+    for rule in OFFLINE_INTERACTION_RULES:
+        if rule["pair"].issubset(normalized):
+            a, b = sorted(list(rule["pair"]))
+            matched.append(
+                AIInteractionItem(
+                    ingredient_a=a.title(),
+                    ingredient_b=b.title(),
+                    severity=rule["severity"],
+                    interaction_description=rule["interaction_description"],
+                    clinical_effect=rule["clinical_effect"],
+                    management_information=rule["management_information"],
+                )
+            )
+    return matched
+
+
 def analyze_interactions_with_ai(ingredient_names: List[str]) -> List[AIInteractionItem]:
-    if not client or len(ingredient_names) < 2:
+    if len(ingredient_names) < 2:
         return []
 
     prompt = f"""
@@ -53,26 +107,19 @@ def analyze_interactions_with_ai(ingredient_names: List[str]) -> List[AIInteract
     If there are no clinically significant interactions, return an empty list.
     """
 
-    for model_name in FALLBACK_MODELS:
-        try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=AIInteractionList,
-                    temperature=0.1,
-                ),
-            )
-            parsed = AIInteractionList.model_validate_json(response.text)
-            return parsed.interactions
-        except APIError as e:
-            if e.code in (429, 404, 503):
-                continue
-            return []
-        except Exception:
-            return []
-    return []
+    try:
+        response = generate_with_key_rotation(
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=AIInteractionList,
+                temperature=0.1,
+            ),
+        )
+        parsed = AIInteractionList.model_validate_json(response.text)
+        return parsed.interactions
+    except Exception:
+        return _offline_interaction_fallback(ingredient_names)
 
 
 def detect_duplicate_ingredients(raw_names: List[str]) -> List[dict]:
