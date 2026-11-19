@@ -23,6 +23,7 @@ interface LifestyleWarningResponse {
 
 interface LifestyleConditionCheckerProps {
   medicines: string[];
+  initialConditions?: string[];
 }
 
 const CONDITION_PILLS = [
@@ -35,11 +36,21 @@ const CONDITION_PILLS = [
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
-export const LifestyleConditionChecker: React.FC<LifestyleConditionCheckerProps> = ({ medicines }) => {
-  const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+export const LifestyleConditionChecker: React.FC<LifestyleConditionCheckerProps> = ({
+  medicines,
+  initialConditions = [],
+}) => {
+  const [selectedConditions, setSelectedConditions] = useState<string[]>(initialConditions);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<LifestyleWarningResponse | null>(null);
+
+  // Sync automatically if the logged-in user has saved health conditions
+  useEffect(() => {
+    if (initialConditions.length > 0) {
+      setSelectedConditions((prev) => Array.from(new Set([...prev, ...initialConditions])));
+    }
+  }, [initialConditions.join(',')]);
 
   const toggleCondition = (conditionId: string) => {
     setSelectedConditions((prev) =>
@@ -103,11 +114,18 @@ export const LifestyleConditionChecker: React.FC<LifestyleConditionCheckerProps>
     <div className="p-4 rounded-xl border border-amber-200/80 bg-amber-50/40 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-            <Utensils className="w-4 h-4 text-amber-600" />
-            <span>Food Timing, Alcohol &amp; Patient Condition Check</span>
-          </h3>
-          <p className="text-xs text-slate-600">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Utensils className="w-4 h-4 text-amber-600" />
+              <span>Food Timing, Alcohol &amp; Patient Condition Check</span>
+            </h3>
+            {initialConditions.length > 0 && (
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-teal-100 text-teal-800 border border-teal-200">
+                Auto-linked from Patient Profile
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-600 mt-0.5">
             Toggle patient conditions below to screen for hidden contraindications alongside meal timing rules
           </p>
         </div>
@@ -128,7 +146,7 @@ export const LifestyleConditionChecker: React.FC<LifestyleConditionCheckerProps>
               key={id}
               type="button"
               onClick={() => toggleCondition(id)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition cursor-pointer ${
                 active
                   ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
                   : 'bg-white text-slate-700 border-slate-300 hover:bg-amber-50'
