@@ -8,8 +8,9 @@ from typing import List, Dict
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError
 
-from app.core.database import get_db
+from app.core.database import get_db, engine, SessionLocal
 from app.models.medicine import MedicineBrand, ActiveIngredient
 from app.models.interaction import DrugInteraction
 from app.services.ai_fallback_service import resolve_and_learn_from_ocr
@@ -29,8 +30,16 @@ router = APIRouter(prefix="/api/v1/prescription", tags=["Prescription & OCR"])
 
 def preprocess_image(image_bytes: bytes) -> Image.Image:
     image = Image.open(io.BytesIO(image_bytes))
+    # Auto-orient phone camera EXIF rotation so sideways phone photos read accurately
+    image = ImageOps.exif_transpose(image)
     if image.mode != "RGB":
         image = image.convert("RGB")
+
+    # Downscale massive 12MP-50MP phone photos to 1400px max side -> 5x faster OCR on Render
+    max_dim = 1400
+    if max(image.width, image.height) > max_dim:
+        image.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+
     gray = ImageOps.grayscale(image)
     enhancer = ImageEnhance.Contrast(gray)
     return enhancer.enhance(2.0)
@@ -76,8 +85,15 @@ async def upload_and_analyze_prescription(
         extracted_text = pytesseract.image_to_string(processed_img)
         raw_lines = [line.strip() for line in extracted_text.split("\n") if line.strip()]
 
-        # 1. Resolve brands against local DB
-        matched_brands = match_brands_from_lines(raw_lines, db)
+        # 1. Resolve brands against local DB (with automatic SSL reconnect if Neon dropped idle socket)
+        try:
+            matched_brands = match_brands_from_lines(raw_lines, db)
+        except OperationalError:
+            db.rollback()
+            db.close()
+            engine.dispose()
+            db = SessionLocal()
+            matched_brands = match_brands_from_lines(raw_lines, db)
 
         # 2. AI Auto-Learning Fallback if no brands matched OR any matched brand has no linked ingredients
         needs_ai_fallback = (not matched_brands) or any(len(b.ingredients) == 0 for b in matched_brands.values())
