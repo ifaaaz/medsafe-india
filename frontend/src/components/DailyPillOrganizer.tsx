@@ -7,17 +7,33 @@ interface DailyPillOrganizerProps {
 
 type SlotKey = 'morning' | 'afternoon' | 'night';
 
+type MealTimingLabel =
+  | 'Before Breakfast'
+  | 'After Breakfast'
+  | 'Before Lunch'
+  | 'After Lunch'
+  | 'Before Dinner'
+  | 'After Dinner'
+  | 'After Food';
+
 interface MedicineScheduleConfig {
   name: string;
   slots: Record<SlotKey, boolean>;
-  mealTiming: 'Before Breakfast' | 'After Food' | 'With Dinner';
+  mealTimings: Record<SlotKey, MealTimingLabel>;
 }
 
+const SLOT_MEAL_OPTIONS: Record<SlotKey, MealTimingLabel[]> = {
+  morning: ['After Breakfast', 'Before Breakfast', 'After Food'],
+  afternoon: ['After Lunch', 'Before Lunch', 'After Food'],
+  night: ['After Dinner', 'Before Dinner', 'After Food'],
+};
+
 // Schedules every medicine 2 times (Morning + Night) or 3 times (Morning + Afternoon + Night)
+// with slot-aware meal timings (e.g. Before Breakfast in Morning -> Before Dinner at Night)
 function getDefaultSchedule(med: string, index: number): MedicineScheduleConfig {
   const lower = med.toLowerCase();
 
-  // PPIs / Gastroprotective agents -> 2 times daily (Morning Before Breakfast & Night)
+  // PPIs / Gastroprotective agents -> 2 times daily (Before Breakfast & Before Dinner)
   if (
     lower.includes('pan') ||
     lower.includes('omez') ||
@@ -29,7 +45,11 @@ function getDefaultSchedule(med: string, index: number): MedicineScheduleConfig 
     return {
       name: med,
       slots: { morning: true, afternoon: false, night: true },
-      mealTiming: 'Before Breakfast',
+      mealTimings: {
+        morning: 'Before Breakfast',
+        afternoon: 'Before Lunch',
+        night: 'Before Dinner',
+      },
     };
   }
 
@@ -47,7 +67,11 @@ function getDefaultSchedule(med: string, index: number): MedicineScheduleConfig 
     return {
       name: med,
       slots: { morning: true, afternoon: true, night: true },
-      mealTiming: 'After Food',
+      mealTimings: {
+        morning: 'After Breakfast',
+        afternoon: 'After Lunch',
+        night: 'After Dinner',
+      },
     };
   }
 
@@ -65,7 +89,11 @@ function getDefaultSchedule(med: string, index: number): MedicineScheduleConfig 
     return {
       name: med,
       slots: { morning: true, afternoon: false, night: true },
-      mealTiming: 'After Food',
+      mealTimings: {
+        morning: 'After Breakfast',
+        afternoon: 'After Lunch',
+        night: 'After Dinner',
+      },
     };
   }
 
@@ -78,7 +106,11 @@ function getDefaultSchedule(med: string, index: number): MedicineScheduleConfig 
       afternoon: isThreeTimesDaily,
       night: true,
     },
-    mealTiming: 'After Food',
+    mealTimings: {
+      morning: 'After Breakfast',
+      afternoon: 'After Lunch',
+      night: 'After Dinner',
+    },
   };
 }
 
@@ -110,17 +142,20 @@ export const DailyPillOrganizer: React.FC<DailyPillOrganizerProps> = ({ medicine
     );
   };
 
-  const cycleMealTiming = (medName: string) => {
-    const order: MedicineScheduleConfig['mealTiming'][] = [
-      'After Food',
-      'Before Breakfast',
-      'With Dinner',
-    ];
+  const cycleMealTiming = (medName: string, slot: SlotKey) => {
+    const order = SLOT_MEAL_OPTIONS[slot];
     setSchedules((prev) =>
       prev.map((item) => {
         if (item.name !== medName) return item;
-        const nextIdx = (order.indexOf(item.mealTiming) + 1) % order.length;
-        return { ...item, mealTiming: order[nextIdx] };
+        const current = item.mealTimings[slot];
+        const nextIdx = (order.indexOf(current) + 1) % order.length;
+        return {
+          ...item,
+          mealTimings: {
+            ...item.mealTimings,
+            [slot]: order[nextIdx],
+          },
+        };
       })
     );
   };
@@ -130,20 +165,22 @@ export const DailyPillOrganizer: React.FC<DailyPillOrganizerProps> = ({ medicine
   const night = schedules.filter((s) => s.slots.night);
 
   const handleWhatsAppShare = () => {
-    const formatList = (list: MedicineScheduleConfig[]) =>
-      list.length > 0 ? list.map((i) => `• ${i.name} (${i.mealTiming})`).join('\n') : '• None';
+    const formatList = (list: MedicineScheduleConfig[], slot: SlotKey) =>
+      list.length > 0
+        ? list.map((i) => `• ${i.name} (${i.mealTimings[slot]})`).join('\n')
+        : '• None';
 
     const message = [
       '*MedSafe India — Daily Pill Schedule*',
       '',
       '*Morning:*',
-      formatList(morning),
+      formatList(morning, 'morning'),
       '',
       '*Afternoon:*',
-      formatList(afternoon),
+      formatList(afternoon, 'afternoon'),
       '',
       '*Night:*',
-      formatList(night),
+      formatList(night, 'night'),
       '',
       '_Generated via MedSafe India Clinical Safety Assistant_',
     ].join('\n');
@@ -205,7 +242,7 @@ export const DailyPillOrganizer: React.FC<DailyPillOrganizerProps> = ({ medicine
               Visual Daily Pill Organizer
             </h3>
             <p className="text-xs text-slate-500">
-              2x / 3x daily Morning, Afternoon &amp; Night schedule — tap M / A / N pills to adjust
+              2x / 3x daily Morning, Afternoon &amp; Night schedule — tap M / A / N or meal badges to adjust
             </p>
           </div>
         </div>
@@ -267,7 +304,7 @@ export const DailyPillOrganizer: React.FC<DailyPillOrganizerProps> = ({ medicine
 
       {/* 3-Column Pillbox Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {slots.map(({ title, timeRange, icon: Icon, accent, badge, iconColor, items }) => (
+        {slots.map(({ key, title, timeRange, icon: Icon, accent, badge, iconColor, items }) => (
           <div key={title} className={`p-3.5 rounded-2xl border ${accent} flex flex-col justify-between`}>
             <div>
               <div className="flex items-center justify-between mb-2.5">
@@ -286,27 +323,31 @@ export const DailyPillOrganizer: React.FC<DailyPillOrganizerProps> = ({ medicine
                 </p>
               ) : (
                 <ul className="space-y-2">
-                  {items.map((pill, idx) => (
-                    <li
-                      key={`${pill.name}-${idx}`}
-                      className="p-2.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2"
-                    >
-                      <span className="text-xs font-bold text-slate-800 truncate">{pill.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => cycleMealTiming(pill.name)}
-                        title="Click to switch meal timing"
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold shrink-0 cursor-pointer transition ${
-                          pill.mealTiming === 'Before Breakfast'
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
-                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
-                        }`}
+                  {items.map((pill, idx) => {
+                    const timing = pill.mealTimings[key];
+                    const isBeforeMeal = timing.startsWith('Before');
+                    return (
+                      <li
+                        key={`${pill.name}-${idx}`}
+                        className="p-2.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2"
                       >
-                        <Utensils className="w-2.5 h-2.5" />
-                        <span>{pill.mealTiming}</span>
-                      </button>
-                    </li>
-                  ))}
+                        <span className="text-xs font-bold text-slate-800 truncate">{pill.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => cycleMealTiming(pill.name, key)}
+                          title="Click to switch meal timing for this slot"
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold shrink-0 cursor-pointer transition ${
+                            isBeforeMeal
+                              ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                          }`}
+                        >
+                          <Utensils className="w-2.5 h-2.5" />
+                          <span>{timing}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>
