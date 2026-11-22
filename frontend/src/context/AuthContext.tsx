@@ -58,8 +58,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     } else {
       setUser({
-        name: 'Rajesh Kumar',
-        email: 'rajesh.kumar@demo.in',
+        name: 'demo_patient',
+        email: 'patient@demo.in',
         role: 'patient',
         age: 58,
         savedConditions: ['Gastric Ulcer'],
