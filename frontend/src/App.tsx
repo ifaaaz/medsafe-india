@@ -26,7 +26,7 @@ const ProtectedWorkspace: React.FC<{ children: React.ReactNode }> = ({ children 
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col bg-[#F4F7FB] text-slate-900 selection:bg-sky-500/20 selection:text-sky-900">
       <Navbar />
 
       {isMobile ? (
