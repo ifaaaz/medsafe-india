@@ -1,6 +1,9 @@
 import os
 import re
+import json
 import itertools
+import urllib.request
+from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
@@ -20,6 +23,11 @@ FALLBACK_MODELS = [
     "gemini-2.0-flash",
 ]
 
+GROQ_FALLBACK_MODELS = [
+    "llama-3.3-70b-versatile",  # 1,000 free RPD, high clinical pharmacology accuracy
+    "llama-3.1-8b-instant",     # 14,400 free RPD, ultra-fast fallback
+]
+
 
 def get_gemini_clients() -> List[genai.Client]:
     """Builds Gemini clients from comma-separated GEMINI_API_KEYS (or single GEMINI_API_KEY)."""
@@ -34,40 +42,110 @@ def get_gemini_clients() -> List[genai.Client]:
 _round_robin_index = itertools.count()
 
 
+def _extract_text_prompt(contents: Any) -> Optional[str]:
+    """Extracts plain text prompt when contents is text-only (returns None for raw image bytes)."""
+    if isinstance(contents, str):
+        return contents
+    if isinstance(contents, list):
+        text_parts = [c for c in contents if isinstance(c, str)]
+        if len(text_parts) == len(contents) and text_parts:
+            return "\n".join(text_parts)
+    return None
+
+
+def _call_groq_overflow(prompt: str, config: Optional[types.GenerateContentConfig]) -> SimpleNamespace:
+    """Automatic Groq LPU overflow when all Gemini keys hit 429 daily limits."""
+    groq_key = os.getenv("GROQ_API_KEY", "").strip()
+    if not groq_key:
+        raise RuntimeError("GROQ_API_KEY not configured")
+
+    schema_instruction = ""
+    if config and getattr(config, "response_schema", None):
+        schema_cls = config.response_schema
+        if hasattr(schema_cls, "model_json_schema"):
+            schema_json = json.dumps(schema_cls.model_json_schema())
+            schema_instruction = (
+                "\n\nCRITICAL: Return ONLY a valid JSON object strictly conforming to this JSON Schema "
+                f"(no markdown fences, no commentary):\n{schema_json}"
+            )
+
+    last_err = None
+    for model_name in GROQ_FALLBACK_MODELS:
+        try:
+            payload = {
+                "model": model_name,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are an Indian clinical pharmacology assistant. Respond strictly with valid JSON matching the requested schema.",
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt + schema_instruction,
+                    },
+                ],
+                "temperature": 0.1,
+                "response_format": {"type": "json_object"},
+            }
+            req = urllib.request.Request(
+                "https://api.groq.com/openai/v1/chat/completions",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Authorization": f"Bearer {groq_key}",
+                    "Content-Type": "application/json",
+                    "User-Agent": "MedSafe-India/1.0",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=25) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+                content_text = body["choices"][0]["message"]["content"]
+                return SimpleNamespace(text=content_text)
+        except Exception as e:
+            last_err = e
+            continue
+
+    raise RuntimeError(f"GROQ_QUOTA_OR_API_ERROR: {last_err}")
+
+
 def generate_with_key_rotation(
     contents: Any,
     config: Optional[types.GenerateContentConfig] = None,
     models: Optional[List[str]] = None,
 ):
     """
-    Shared multi-project key + multi-model rotation helper.
-    Import and use this in generic_saver.py, lifestyle_warnings.py, and ocr.py.
+    Shared multi-project Gemini key + multi-model rotation helper with automatic Groq overflow.
+    Used across ocr.py, interactions.py, lifestyle_warnings.py, generic_saver.py, and medicines.py.
     """
     clients = get_gemini_clients()
-    if not clients:
-        raise RuntimeError("No GEMINI_API_KEYS or GEMINI_API_KEY configured in environment variables.")
-
     model_list = models or FALLBACK_MODELS
-    start = next(_round_robin_index) % len(clients)
-    ordered_clients = clients[start:] + clients[:start]
-
     last_error = None
-    for client in ordered_clients:
-        for model_name in model_list:
-            try:
-                return client.models.generate_content(
-                    model=model_name,
-                    contents=contents,
-                    config=config,
-                )
-            except APIError as e:
-                last_error = e
-                if e.code in (429, 404, 503):
+
+    if clients:
+        start = next(_round_robin_index) % len(clients)
+        ordered_clients = clients[start:] + clients[:start]
+
+        for client in ordered_clients:
+            for model_name in model_list:
+                try:
+                    return client.models.generate_content(
+                        model=model_name,
+                        contents=contents,
+                        config=config,
+                    )
+                except APIError as e:
+                    last_error = e
+                    if e.code in (429, 404, 503):
+                        continue
+                    raise
+                except Exception as e:
+                    last_error = e
                     continue
-                raise
-            except Exception as e:
-                last_error = e
-                continue
+
+    # Tier 2: Automatic Groq overflow (14,400+ free req/day) if all Gemini keys are exhausted
+    text_prompt = _extract_text_prompt(contents)
+    if text_prompt and os.getenv("GROQ_API_KEY"):
+        return _call_groq_overflow(text_prompt, config)
 
     raise RuntimeError(f"ALL_QUOTAS_EXHAUSTED: {last_error}")
 
@@ -80,15 +158,20 @@ OFFLINE_INDIAN_BRANDS: Dict[str, dict] = {
     "pan-d": {"brand_name": "Pan-D", "generic_name": "Pantoprazole + Domperidone", "strength": "40mg/30mg", "dosage_form": "Capsule", "active_ingredients": ["Pantoprazole", "Domperidone"]},
     "pantop 40": {"brand_name": "Pantop 40", "generic_name": "Pantoprazole", "strength": "40mg", "dosage_form": "Tablet", "active_ingredients": ["Pantoprazole"]},
     "ecosprin 75": {"brand_name": "Ecosprin 75", "generic_name": "Aspirin", "strength": "75mg", "dosage_form": "Tablet", "active_ingredients": ["Aspirin"]},
+    "warf 5": {"brand_name": "Warf 5", "generic_name": "Warfarin", "strength": "5mg", "dosage_form": "Tablet", "active_ingredients": ["Warfarin"]},
     "acitrom 2": {"brand_name": "Acitrom 2", "generic_name": "Acenocoumarol", "strength": "2mg", "dosage_form": "Tablet", "active_ingredients": ["Acenocoumarol"]},
     "augmentin 625": {"brand_name": "Augmentin 625 Duo", "generic_name": "Amoxicillin + Clavulanic Acid", "strength": "625mg", "dosage_form": "Tablet", "active_ingredients": ["Amoxicillin", "Clavulanic Acid"]},
     "atorva 20": {"brand_name": "Atorva 20", "generic_name": "Atorvastatin", "strength": "20mg", "dosage_form": "Tablet", "active_ingredients": ["Atorvastatin"]},
     "clopilet 75": {"brand_name": "Clopilet 75", "generic_name": "Clopidogrel", "strength": "75mg", "dosage_form": "Tablet", "active_ingredients": ["Clopidogrel"]},
     "zerodol-sp": {"brand_name": "Zerodol-SP", "generic_name": "Aceclofenac + Paracetamol + Serratiopeptidase", "strength": "100mg/325mg/15mg", "dosage_form": "Tablet", "active_ingredients": ["Aceclofenac", "Paracetamol", "Serratiopeptidase"]},
+    "acyton-sp": {"brand_name": "Acyton-SP", "generic_name": "Aceclofenac + Paracetamol + Serratiopeptidase", "strength": "100mg/325mg/15mg", "dosage_form": "Tablet", "active_ingredients": ["Aceclofenac", "Paracetamol", "Serratiopeptidase"]},
+    "poxovir 800": {"brand_name": "Poxovir 800", "generic_name": "Aciclovir", "strength": "800mg", "dosage_form": "Tablet", "active_ingredients": ["Aciclovir"]},
     "flagyl 400": {"brand_name": "Flagyl 400", "generic_name": "Metronidazole", "strength": "400mg", "dosage_form": "Tablet", "active_ingredients": ["Metronidazole"]},
     "omez 20": {"brand_name": "Omez 20", "generic_name": "Omeprazole", "strength": "20mg", "dosage_form": "Capsule", "active_ingredients": ["Omeprazole"]},
     "azithral 500": {"brand_name": "Azithral 500", "generic_name": "Azithromycin", "strength": "500mg", "dosage_form": "Tablet", "active_ingredients": ["Azithromycin"]},
     "montair lc": {"brand_name": "Montair LC", "generic_name": "Montelukast + Levocetirizine", "strength": "10mg/5mg", "dosage_form": "Tablet", "active_ingredients": ["Montelukast", "Levocetirizine"]},
+    "glycomet 500": {"brand_name": "Glycomet 500 SR", "generic_name": "Metformin", "strength": "500mg", "dosage_form": "Tablet", "active_ingredients": ["Metformin"]},
+    "allegra 120": {"brand_name": "Allegra 120", "generic_name": "Fexofenadine", "strength": "120mg", "dosage_form": "Tablet", "active_ingredients": ["Fexofenadine"]},
 }
 
 
@@ -153,8 +236,8 @@ def resolve_and_learn_from_ocr(
     db: Session
 ) -> List[dict]:
     """
-    Uses 3-project Gemini key rotation to identify unknown medicines from OCR text, checks interactions
-    against both new and existing patient ingredients, and saves everything to PostgreSQL.
+    Uses 3-project Gemini key rotation + Groq overflow to identify unknown medicines from OCR text,
+    checks interactions against both new and existing patient ingredients, and saves everything to PostgreSQL.
     """
     prompt = f"""
     You are a clinical pharmacology assistant for Indian prescriptions.
