@@ -43,8 +43,8 @@ export const LoginPage: React.FC = () => {
       (email.includes('@')
         ? email.split('@')[0]
         : role === 'clinician'
-        ? 'Dr. Ananya Rao'
-        : 'Patient User');
+        ? 'dr_ananya_rao'
+        : 'patient_user');
 
     login({
       name: displayName,
@@ -234,12 +234,13 @@ export const LoginPage: React.FC = () => {
 
           <form onSubmit={handleFormSubmit} className="space-y-3.5">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Username</label>
               <input
                 type="text"
+                required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder={role === 'clinician' ? 'Dr. R. Shenoy' : 'e.g. Rajesh Kumar'}
+                placeholder={role === 'clinician' ? 'e.g. dr_shenoy' : 'e.g. rajesh_kumar'}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
               />
             </div>
