@@ -240,7 +240,7 @@ export const LoginPage: React.FC = () => {
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder={role === 'clinician' ? 'e.g. dr_shenoy' : 'e.g. rajesh_kumar'}
+                placeholder="Enter your username"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
               />
             </div>
