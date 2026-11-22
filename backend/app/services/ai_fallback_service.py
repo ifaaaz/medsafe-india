@@ -3,6 +3,7 @@ import re
 import json
 import itertools
 import urllib.request
+import urllib.error
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
@@ -23,9 +24,11 @@ FALLBACK_MODELS = [
     "gemini-2.0-flash",
 ]
 
+# Active Groq Free/Developer production models (replacing deprecated llama-3.3-70b / 3.1-8b)
 GROQ_FALLBACK_MODELS = [
-    "llama-3.3-70b-versatile",  # 1,000 free RPD, high clinical pharmacology accuracy
-    "llama-3.1-8b-instant",     # 14,400 free RPD, ultra-fast fallback
+    "openai/gpt-oss-120b",   # Groq flagship open-weight model (~500 tok/s)
+    "openai/gpt-oss-20b",    # Ultra-fast fallback (~1000 tok/s)
+    "qwen/qwen3.8-27b",      # Secondary fallback
 ]
 
 
@@ -57,9 +60,10 @@ def _call_groq_overflow(prompt: str, config: Optional[types.GenerateContentConfi
     """Automatic Groq LPU overflow when all Gemini keys hit 429 daily limits."""
     groq_key = os.getenv("GROQ_API_KEY", "").strip()
     if not groq_key:
+        print("[AI-Fallback] GROQ_API_KEY is missing in environment!")
         raise RuntimeError("GROQ_API_KEY not configured")
 
-    schema_instruction = ""
+    schema_instruction = "\n\nRespond ONLY with a valid JSON object."
     if config and getattr(config, "response_schema", None):
         schema_cls = config.response_schema
         if hasattr(schema_cls, "model_json_schema"):
@@ -72,12 +76,12 @@ def _call_groq_overflow(prompt: str, config: Optional[types.GenerateContentConfi
     last_err = None
     for model_name in GROQ_FALLBACK_MODELS:
         try:
-            payload = {
+            payload: Dict[str, Any] = {
                 "model": model_name,
                 "messages": [
                     {
                         "role": "system",
-                        "content": "You are an Indian clinical pharmacology assistant. Respond strictly with valid JSON matching the requested schema.",
+                        "content": "You are an Indian clinical pharmacology assistant. Always respond strictly with valid JSON matching the requested schema.",
                     },
                     {
                         "role": "user",
@@ -87,6 +91,9 @@ def _call_groq_overflow(prompt: str, config: Optional[types.GenerateContentConfi
                 "temperature": 0.1,
                 "response_format": {"type": "json_object"},
             }
+            if model_name.startswith("openai/gpt-oss"):
+                payload["reasoning_effort"] = "low"
+
             req = urllib.request.Request(
                 "https://api.groq.com/openai/v1/chat/completions",
                 data=json.dumps(payload).encode("utf-8"),
@@ -100,8 +107,15 @@ def _call_groq_overflow(prompt: str, config: Optional[types.GenerateContentConfi
             with urllib.request.urlopen(req, timeout=25) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
                 content_text = body["choices"][0]["message"]["content"]
+                print(f"[AI-Fallback] Groq succeeded via {model_name}")
                 return SimpleNamespace(text=content_text)
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode("utf-8", errors="ignore")
+            print(f"[AI-Fallback] Groq HTTPError {e.code} on {model_name}: {err_body}")
+            last_err = f"HTTP {e.code}: {err_body}"
+            continue
         except Exception as e:
+            print(f"[AI-Fallback] Groq Exception on {model_name}: {e}")
             last_err = e
             continue
 
@@ -142,7 +156,7 @@ def generate_with_key_rotation(
                     last_error = e
                     continue
 
-    # Tier 2: Automatic Groq overflow (14,400+ free req/day) if all Gemini keys are exhausted
+    # Tier 2: Automatic Groq overflow if all Gemini keys are exhausted
     text_prompt = _extract_text_prompt(contents)
     if text_prompt and os.getenv("GROQ_API_KEY"):
         return _call_groq_overflow(text_prompt, config)

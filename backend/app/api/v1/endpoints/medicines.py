@@ -14,6 +14,8 @@ from app.api.v1.endpoints.history import log_medicine_to_history
 
 router = APIRouter(prefix="/medicines", tags=["Medicines"])
 
+PLACEHOLDER_MARKER = "is a prescribed pharmaceutical formulation"
+
 
 class MedicineUsesSchema(BaseModel):
     brand_name: str = Field(description="Standardized Indian brand or medicine name")
@@ -26,7 +28,7 @@ class MedicineUsesSchema(BaseModel):
     )
 
 
-# Deterministic offline Indian clinical pharmacology catalog (zero API quota needed if all 9 buckets hit 429)
+# Deterministic offline Indian clinical pharmacology catalog
 OFFLINE_INDIAN_MEDICINES: Dict[str, dict] = {
     "dolo": {
         "brand_name": "Dolo 650",
@@ -109,12 +111,36 @@ OFFLINE_INDIAN_MEDICINES: Dict[str, dict] = {
         "therapeutic_uses": "Dual anti-inflammatory and analgesic tablet for musculoskeletal pain, sprains, dental pain, and high fever. Precaution: Take strictly after food; avoid in gastric ulcers, kidney disease, or alongside Aspirin/other NSAIDs.",
     },
     "zerodol": {
-        "brand_name": "Zerodol-P",
-        "generic_name": "Aceclofenac 100mg + Paracetamol 325mg",
-        "strength": "100mg / 325mg",
+        "brand_name": "Zerodol-SP",
+        "generic_name": "Aceclofenac 100mg + Paracetamol 325mg + Serratiopeptidase 15mg",
+        "strength": "100mg / 325mg / 15mg",
         "dosage_form": "Tablet",
-        "active_ingredients": ["Aceclofenac", "Paracetamol"],
-        "therapeutic_uses": "NSAID + analgesic combination for joint pain, arthritis, backache, and post-operative inflammation. Precaution: Take after meals; avoid in active peptic ulcer or severe renal impairment.",
+        "active_ingredients": ["Aceclofenac", "Paracetamol", "Serratiopeptidase"],
+        "therapeutic_uses": "NSAID, analgesic, and proteolytic enzyme combination for joint pain, arthritis, dental pain, and post-operative swelling. Precaution: Take after meals; avoid in active peptic ulcer or severe renal impairment.",
+    },
+    "acyton": {
+        "brand_name": "Acyton-SP",
+        "generic_name": "Aceclofenac 100mg + Paracetamol 325mg + Serratiopeptidase 15mg",
+        "strength": "100mg / 325mg / 15mg",
+        "dosage_form": "Tablet",
+        "active_ingredients": ["Aceclofenac", "Paracetamol", "Serratiopeptidase"],
+        "therapeutic_uses": "Combination anti-inflammatory, pain-relieving, and anti-edematous tablet used for acute musculoskeletal pain, arthritis, sprains, and post-surgical swelling. Precaution: Take strictly after food; avoid alcohol, gastric ulcers, or combining with other Paracetamol/NSAID drugs.",
+    },
+    "poxovir": {
+        "brand_name": "Poxovir 800",
+        "generic_name": "Aciclovir 800mg",
+        "strength": "800mg",
+        "dosage_form": "Tablet",
+        "active_ingredients": ["Aciclovir"],
+        "therapeutic_uses": "Antiviral nucleoside analogue prescribed to treat herpes zoster (shingles), chickenpox (varicella), and severe herpes simplex viral infections by inhibiting viral DNA replication. Precaution: Drink plenty of water to prevent kidney crystallization, adjust dose in renal impairment, and complete the full prescribed course.",
+    },
+    "aciclovir": {
+        "brand_name": "Aciclovir 800mg",
+        "generic_name": "Aciclovir",
+        "strength": "800mg",
+        "dosage_form": "Tablet",
+        "active_ingredients": ["Aciclovir"],
+        "therapeutic_uses": "Antiviral medication used for shingles (herpes zoster), chickenpox, and HSV infections. Precaution: Maintain adequate hydration and consult a doctor if you have kidney disease.",
     },
     "ecosprin": {
         "brand_name": "Ecosprin 75",
@@ -192,7 +218,7 @@ def _offline_medicine_lookup(search_term: str) -> MedicineUsesSchema:
         strength="Standard",
         dosage_form="Tablet",
         active_ingredients=[clean_title],
-        therapeutic_uses=f"{clean_title} is a prescribed pharmaceutical formulation. Please verify its active salt composition, meal timing, and contraindications on the strip label or with a licensed pharmacist.",
+        therapeutic_uses=f"{clean_title} {PLACEHOLDER_MARKER}. Please verify its active salt composition, meal timing, and contraindications on the strip label or with a licensed pharmacist.",
     )
 
 
@@ -207,7 +233,8 @@ def generate_with_fallback(prompt: str, search_term: str) -> MedicineUsesSchema:
             ),
         )
         return MedicineUsesSchema.model_validate_json(response.text)
-    except Exception:
+    except Exception as e:
+        print(f"[MedicinesLookup] Falling back to offline catalog for '{search_term}': {e}")
         return _offline_medicine_lookup(search_term)
 
 
@@ -240,8 +267,14 @@ def lookup_medicine_uses(
         .first()
     )
 
-    # 2. Return immediately if already stored with therapeutic_uses
-    if db_brand and db_brand.therapeutic_uses:
+    is_stale_placeholder = bool(
+        db_brand
+        and db_brand.therapeutic_uses
+        and PLACEHOLDER_MARKER in db_brand.therapeutic_uses.lower()
+    )
+
+    # 2. Return immediately ONLY if already stored with real clinical therapeutic_uses
+    if db_brand and db_brand.therapeutic_uses and not is_stale_placeholder:
         ings = [ing.name for ing in db_brand.ingredients] or ([db_brand.generic_name] if db_brand.generic_name else [])
 
         log_medicine_to_history(
@@ -263,7 +296,7 @@ def lookup_medicine_uses(
             "source": "Verified Local Database"
         }
 
-    # 3. AI Key-Rotated + Offline Pharmacology Fallback for unknown medicines or records missing uses
+    # 3. AI Key-Rotated (Gemini + Groq Overflow) + Offline Pharmacology Fallback
     prompt = f"""
     You are a clinical pharmacology assistant for Indian medications.
     A user searched for the medicine: "{search_term}".
@@ -271,57 +304,65 @@ def lookup_medicine_uses(
     """
 
     ai_data = generate_with_fallback(prompt, search_term)
+    is_generic_placeholder = PLACEHOLDER_MARKER in ai_data.therapeutic_uses.lower()
 
-    # 4. Persist to PostgreSQL so future searches resolve instantly
-    if not db_brand:
-        db_brand = db.query(MedicineBrand).filter_by(normalized_brand_name=normalize_name(ai_data.brand_name)).first()
+    # 4. Persist to PostgreSQL ONLY when we have real verified/AI clinical data
+    if not is_generic_placeholder:
+        if not db_brand:
+            db_brand = db.query(MedicineBrand).filter_by(normalized_brand_name=normalize_name(ai_data.brand_name)).first()
 
-    if not db_brand:
-        db_brand = MedicineBrand(
-            brand_name=ai_data.brand_name,
-            normalized_brand_name=normalize_name(ai_data.brand_name),
-            generic_name=ai_data.generic_name,
-            strength=ai_data.strength,
-            dosage_form=ai_data.dosage_form or "Tablet",
-            therapeutic_uses=ai_data.therapeutic_uses,
-            manufacturer="Auto-Indexed via Clinical AI"
-        )
-        db.add(db_brand)
-        db.flush()
-    else:
-        db_brand.therapeutic_uses = ai_data.therapeutic_uses
-
-    saved_ings = []
-    for ing_name in ai_data.active_ingredients:
-        clean_ing = ing_name.strip().title()
-        db_ing = db.query(ActiveIngredient).filter_by(name=clean_ing).first()
-        if not db_ing:
-            db_ing = ActiveIngredient(name=clean_ing)
-            db.add(db_ing)
+        if not db_brand:
+            db_brand = MedicineBrand(
+                brand_name=ai_data.brand_name,
+                normalized_brand_name=normalize_name(ai_data.brand_name),
+                generic_name=ai_data.generic_name,
+                strength=ai_data.strength,
+                dosage_form=ai_data.dosage_form or "Tablet",
+                therapeutic_uses=ai_data.therapeutic_uses,
+                manufacturer="Auto-Indexed via Clinical AI"
+            )
+            db.add(db_brand)
             db.flush()
-        if db_ing not in db_brand.ingredients:
-            db_brand.ingredients.append(db_ing)
-        saved_ings.append(clean_ing)
+        else:
+            db_brand.brand_name = ai_data.brand_name
+            db_brand.generic_name = ai_data.generic_name
+            db_brand.strength = ai_data.strength
+            db_brand.dosage_form = ai_data.dosage_form or db_brand.dosage_form
+            db_brand.therapeutic_uses = ai_data.therapeutic_uses
 
-    db.commit()
+        saved_ings = []
+        for ing_name in ai_data.active_ingredients:
+            clean_ing = ing_name.strip().title()
+            db_ing = db.query(ActiveIngredient).filter_by(name=clean_ing).first()
+            if not db_ing:
+                db_ing = ActiveIngredient(name=clean_ing)
+                db.add(db_ing)
+                db.flush()
+            if db_ing not in db_brand.ingredients:
+                db_brand.ingredients.append(db_ing)
+            saved_ings.append(clean_ing)
+
+        db.commit()
+    else:
+        saved_ings = ai_data.active_ingredients
 
     log_medicine_to_history(
         db=db,
-        brand_name=db_brand.brand_name,
-        generic_name=db_brand.generic_name,
-        strength=db_brand.strength,
+        brand_name=ai_data.brand_name,
+        generic_name=ai_data.generic_name,
+        strength=ai_data.strength,
         active_ingredients=saved_ings,
         source_action="Medicine Lookup"
     )
 
     return {
-        "brand_name": db_brand.brand_name,
-        "generic_name": db_brand.generic_name,
-        "strength": db_brand.strength,
-        "dosage_form": db_brand.dosage_form,
+        "brand_name": ai_data.brand_name,
+        "generic_name": ai_data.generic_name,
+        "strength": ai_data.strength,
+        "dosage_form": ai_data.dosage_form or "Tablet",
         "active_ingredients": saved_ings,
-        "therapeutic_uses": db_brand.therapeutic_uses,
-        "source": "AI Auto-Indexed & Saved"
+        "therapeutic_uses": ai_data.therapeutic_uses,
+        "source": "AI Auto-Indexed & Saved" if not is_generic_placeholder else "Offline Clinical Notice"
     }
 
 
@@ -337,4 +378,3 @@ def medicine_detail_endpoint(
             detail="Medicine information unavailable in verified structured sources."
         )
     return detail
-    
