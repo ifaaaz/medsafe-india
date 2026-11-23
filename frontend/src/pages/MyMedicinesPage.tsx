@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface HistoryItem {
   id: number;
@@ -12,6 +13,7 @@ interface HistoryItem {
 }
 
 export const MyMedicinesPage: React.FC = () => {
+  const { t } = useLanguage();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -75,7 +77,7 @@ export const MyMedicinesPage: React.FC = () => {
   };
 
   const handleClearAll = async () => {
-    if (!window.confirm('Clear all recorded medication history?')) return;
+    if (!window.confirm(t.myMedsClearConfirm)) return;
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/v1/history/`, {
         method: 'DELETE',
@@ -136,13 +138,15 @@ export const MyMedicinesPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
+    <div className="max-w-5xl mx-auto p-4 sm:p-6">
       {/* Header */}
       <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">My Medicines &amp; History</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Automatically tracks your searched and scanned medications, checks duplicate active salts, and lets you manage records.
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+            {t.myMedsPageTitle}
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-600 mt-1">
+            {t.myMedsPageSubtitle}
           </p>
         </div>
 
@@ -150,16 +154,16 @@ export const MyMedicinesPage: React.FC = () => {
           {history.length > 0 && (
             <button
               onClick={handleClearAll}
-              className="px-4 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors cursor-pointer"
             >
-              Clear All History
+              {t.myMedsClearAllBtn}
             </button>
           )}
           <button
             onClick={() => setShowAddModal(!showAddModal)}
-            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-700 rounded-lg hover:bg-emerald-800 transition-colors"
+            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-700 rounded-lg hover:bg-emerald-800 transition-colors cursor-pointer"
           >
-            + Add Medicine
+            {t.myMedsAddBtn}
           </button>
         </div>
       </div>
@@ -170,33 +174,33 @@ export const MyMedicinesPage: React.FC = () => {
           onSubmit={handleManualAdd}
           className="bg-white p-5 rounded-xl border border-emerald-200 shadow-sm mb-6 space-y-4"
         >
-          <h2 className="text-sm font-bold text-gray-800">Add Medicine to History</h2>
+          <h2 className="text-sm font-bold text-gray-800">{t.myMedsModalTitle}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <input
               type="text"
               required
-              placeholder="Brand Name (e.g., Dolo 650)"
+              placeholder={t.myMedsBrandPlaceholder}
               value={brandName}
               onChange={(e) => setBrandName(e.target.value)}
               className="px-3.5 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-600 outline-none"
             />
             <input
               type="text"
-              placeholder="Active Salt(s) (e.g., Paracetamol)"
+              placeholder={t.myMedsSaltPlaceholder}
               value={saltName}
               onChange={(e) => setSaltName(e.target.value)}
               className="px-3.5 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-600 outline-none"
             />
             <input
               type="text"
-              placeholder="Strength (e.g., 650mg)"
+              placeholder={t.myMedsStrengthPlaceholder}
               value={strength}
               onChange={(e) => setStrength(e.target.value)}
               className="px-3.5 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-600 outline-none"
             />
             <input
               type="text"
-              placeholder="Reminder / Note (e.g., Daily at 9:00 AM)"
+              placeholder={t.myMedsNotesPlaceholder}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="px-3.5 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-600 outline-none"
@@ -206,15 +210,15 @@ export const MyMedicinesPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowAddModal(false)}
-              className="px-4 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+              className="px-4 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer"
             >
-              Cancel
+              {t.myMedsCancelBtn}
             </button>
             <button
               type="submit"
-              className="px-5 py-1.5 text-sm font-semibold text-white bg-emerald-700 rounded-lg hover:bg-emerald-800"
+              className="px-5 py-1.5 text-sm font-semibold text-white bg-emerald-700 rounded-lg hover:bg-emerald-800 cursor-pointer"
             >
-              Save Record
+              {t.myMedsSaveBtn}
             </button>
           </div>
         </form>
@@ -224,11 +228,12 @@ export const MyMedicinesPage: React.FC = () => {
       {duplicateSalts.length > 0 && (
         <div className="p-4 mb-6 rounded-xl bg-red-50 border border-red-200 text-red-900">
           <div className="font-bold text-sm flex items-center gap-2 text-red-700">
-            <span>!</span> Duplicate Active Ingredient Warning Detected
+            <span>!</span> {t.myMedsDuplicateTitle}
           </div>
           {duplicateSalts.map((dup) => (
             <p key={dup.salt} className="text-xs text-red-800 mt-1">
-              You have multiple recorded medications containing <strong>{dup.salt}</strong> ({dup.brands.join(', ')}). Taking these together may exceed safe daily limits. Consult your physician.
+              {t.myMedsDuplicatePrefix} <strong>{dup.salt}</strong> ({dup.brands.join(', ')}).{' '}
+              {t.myMedsDuplicateSuffix}
             </p>
           ))}
         </div>
@@ -236,10 +241,10 @@ export const MyMedicinesPage: React.FC = () => {
 
       {/* History List */}
       {loading ? (
-        <div className="p-10 text-center text-sm text-gray-500">Loading medication history...</div>
+        <div className="p-10 text-center text-sm text-gray-500">{t.myMedsLoading}</div>
       ) : history.length === 0 ? (
         <div className="p-10 rounded-xl border border-gray-200 bg-white text-center text-sm text-gray-500">
-          No medication history recorded yet. Search a medicine in <strong>Medicine Checker</strong>, scan a prescription, or click <strong>+ Add Medicine</strong>.
+          {t.myMedsEmptyState}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -266,38 +271,40 @@ export const MyMedicinesPage: React.FC = () => {
                     <div className="flex items-center gap-2">
                       {isDuplicate ? (
                         <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-red-50 text-red-700 border border-red-200">
-                          Duplicate Salt
+                          {t.myMedsDuplicateBadge}
                         </span>
                       ) : (
                         <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          Recorded
+                          {t.myMedsRecordedBadge}
                         </span>
                       )}
 
                       <button
                         onClick={() => handleDeleteItem(item.id)}
-                        title="Delete record"
-                        className="px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded-md border border-transparent hover:border-red-200 transition-colors"
+                        title={t.myMedsDeleteBtn}
+                        className="px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded-md border border-transparent hover:border-red-200 transition-colors cursor-pointer"
                       >
-                        Delete
+                        {t.myMedsDeleteBtn}
                       </button>
                     </div>
                   </div>
 
                   <p className="text-xs text-gray-700 mt-3">
-                    <span className="font-semibold">Active Salt:</span>{' '}
+                    <span className="font-semibold">{t.myMedsActiveSaltLabel}:</span>{' '}
                     {item.active_ingredients.length > 0
                       ? item.active_ingredients.join(', ')
                       : item.generic_name || 'N/A'}
                   </p>
 
                   {item.notes && (
-                    <p className="text-xs text-gray-500 mt-1">Note: {item.notes}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {t.myMedsNoteLabel}: {item.notes}
+                    </p>
                   )}
                 </div>
 
                 <div className="mt-4 pt-2 border-t border-gray-100 text-[11px] text-gray-400">
-                  Recorded on {formatDate(item.recorded_at)}
+                  {t.myMedsRecordedOnLabel} {formatDate(item.recorded_at)}
                 </div>
               </div>
             );

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Volume2, Square, Copy, Check, Users } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface CaregiverAudioSummaryProps {
   medicines: string[];
@@ -15,7 +16,6 @@ interface CaregiverAudioSummaryProps {
 
 type SupportedLang = 'en-IN' | 'kn-IN' | 'hi-IN';
 
-// Phonetic transliteration map so Kannada & Hindi TTS engines read medicine names natively
 const MEDICINE_TRANSLITERATIONS: Record<string, { kn: string; hi: string }> = {
   'dolo 650': { kn: 'ಡೋಲೋ ೬೫೦', hi: 'डोलो 650' },
   'combiflam': { kn: 'ಕಾಂಬಿಫ್ಲಾಮ್', hi: 'कॉम्बिफ्लाम' },
@@ -32,6 +32,10 @@ const MEDICINE_TRANSLITERATIONS: Record<string, { kn: string; hi: string }> = {
   'omez 20': { kn: 'ಓಮೆಜ್ ೨೦', hi: 'ओमेज़ 20' },
   'azithral 500': { kn: 'ಅಜಿತ್ರಾಲ್ ೫೦೦', hi: 'अज़िथ्रल 500' },
   'montair lc': { kn: 'ಮಾಂಟೇರ್ ಎಲ್ ಸಿ', hi: 'मॉन्टेर एलसी' },
+  'warfarin': { kn: 'ವಾರ್ಫರಿನ್', hi: 'वॉरफ़रिन' },
+  'aspirin': { kn: 'ಆಸ್ಪಿರಿನ್', hi: 'एस्पिरिन' },
+  'ibuprofen': { kn: 'ಐಬುಪ್ರೊಫೆನ್', hi: 'इबुप्रोफेन' },
+  'fluconazole': { kn: 'ಫ್ಲುಕೊನಜೋಲ್', hi: 'फ्लुकोनाज़ोल' },
 };
 
 function localizeMedicineList(medicines: string[], lang: SupportedLang): string {
@@ -56,10 +60,22 @@ export const CaregiverAudioSummary: React.FC<CaregiverAudioSummaryProps> = ({
   interactionsCount = 0,
   interactions = [],
 }) => {
-  const [activeLang, setActiveLang] = useState<SupportedLang>('en-IN');
+  const { lang: appLang, t } = useLanguage();
+
+  const mapAppLangToTts = (code: string): SupportedLang => {
+    if (code === 'kn') return 'kn-IN';
+    if (code === 'hi') return 'hi-IN';
+    return 'en-IN';
+  };
+
+  const [activeLang, setActiveLang] = useState<SupportedLang>(() => mapAppLangToTts(appLang));
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  useEffect(() => {
+    setActiveLang(mapAppLangToTts(appLang));
+  }, [appLang]);
 
   useEffect(() => {
     if (!('speechSynthesis' in window)) return;
@@ -119,7 +135,7 @@ export const CaregiverAudioSummary: React.FC<CaregiverAudioSummaryProps> = ({
     setActiveLang(lang);
 
     if (!('speechSynthesis' in window)) {
-      alert('Voice readout is not supported in this browser. Try Chrome or Edge.');
+      alert(t.audioTtsUnsupported);
       return;
     }
 
@@ -130,12 +146,14 @@ export const CaregiverAudioSummary: React.FC<CaregiverAudioSummaryProps> = ({
     utterance.rate = 0.92;
 
     const currentVoices = voices.length > 0 ? voices : window.speechSynthesis.getVoices();
-    const langPrefix = lang.split('-')[0].toLowerCase(); // 'kn', 'hi', or 'en'
+    const langPrefix = lang.split('-')[0].toLowerCase();
 
     const matchedVoice =
       currentVoices.find((v) => v.lang.toLowerCase() === lang.toLowerCase()) ||
       currentVoices.find((v) => v.lang.toLowerCase().startsWith(langPrefix)) ||
-      currentVoices.find((v) => v.name.toLowerCase().includes(langPrefix === 'kn' ? 'kannada' : langPrefix === 'hi' ? 'hindi' : 'india'));
+      currentVoices.find((v) =>
+        v.name.toLowerCase().includes(langPrefix === 'kn' ? 'kannada' : langPrefix === 'hi' ? 'hindi' : 'india')
+      );
 
     if (matchedVoice) {
       utterance.voice = matchedVoice;
@@ -174,10 +192,10 @@ export const CaregiverAudioSummary: React.FC<CaregiverAudioSummaryProps> = ({
           </span>
           <div>
             <h3 className="text-sm font-bold text-indigo-950">
-              Caregiver Summary &amp; Voice Readout
+              {t.audioSummaryTitle}
             </h3>
             <p className="text-xs text-indigo-700">
-              Listen in English, Kannada, or Hindi for elderly patients &amp; family caregivers
+              {t.audioSummarySubtitle}
             </p>
           </div>
         </div>
@@ -188,7 +206,7 @@ export const CaregiverAudioSummary: React.FC<CaregiverAudioSummaryProps> = ({
               key={lang}
               type="button"
               onClick={() => handleSpeak(lang)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 activeLang === lang && isSpeaking
                   ? 'bg-indigo-700 text-white ring-2 ring-indigo-300'
                   : activeLang === lang
@@ -205,10 +223,10 @@ export const CaregiverAudioSummary: React.FC<CaregiverAudioSummaryProps> = ({
             <button
               type="button"
               onClick={handleStop}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-700 transition"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-700 transition cursor-pointer"
             >
               <Square className="w-3 h-3 fill-current" />
-              <span>Stop</span>
+              <span>{t.audioStopBtn}</span>
             </button>
           )}
         </div>
@@ -221,11 +239,11 @@ export const CaregiverAudioSummary: React.FC<CaregiverAudioSummaryProps> = ({
         <button
           type="button"
           onClick={handleCopySummary}
-          title="Copy caregiver summary to share on WhatsApp"
-          className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100 border border-slate-200"
+          title={t.audioCopyTooltip}
+          className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100 border border-slate-200 cursor-pointer"
         >
           {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-          <span>{copied ? 'Copied' : 'Copy'}</span>
+          <span>{copied ? t.audioCopiedBtn : t.audioCopyBtn}</span>
         </button>
       </div>
     </div>

@@ -1,17 +1,24 @@
 import React from 'react';
-import { ShieldCheck, Lock, Cpu, FileCheck } from 'lucide-react';
+import { Lock, FileCheck } from 'lucide-react';
 import { WarningCard } from '../components/WarningCard';
+import { useLanguage } from '../context/LanguageContext';
 
 export const SafetyPage: React.FC = () => {
+  const { t } = useLanguage();
+
   return (
-    <div className="space-y-8 max-w-4xl mx-auto">
+    <div className="space-y-8 max-w-4xl mx-auto p-4 sm:p-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Clinical Safety & Guardrails</h1>
-        <p className="text-sm text-slate-500 mt-1">Understand how MedSafe India guarantees medical safety and strict data integrity.</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+          {t.safetyPageTitle}
+        </h1>
+        <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          {t.safetyPageSubtitle}
+        </p>
       </div>
 
-      <WarningCard type="info" title="Zero LLM Medical Decision Rule">
-        MedSafe India strictly prohibits Large Language Models from generating or deciding medicine facts, drug-drug interactions, or dosage instructions. LLMs are exclusively restricted to translating pre-verified structured facts into simpler language.
+      <WarningCard type="info" title={t.safetyZeroLlmTitle}>
+        {t.safetyZeroLlmBody}
       </WarningCard>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -19,9 +26,9 @@ export const SafetyPage: React.FC = () => {
           <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl w-fit">
             <FileCheck className="w-6 h-6" />
           </div>
-          <h3 className="font-bold text-slate-900">Structured Verified Sources</h3>
+          <h3 className="font-bold text-slate-900">{t.safetyVerifiedSourcesTitle}</h3>
           <p className="text-sm text-slate-600 leading-relaxed">
-            All brand names, active salts, strengths, and manufacturers originate exclusively from verified Indian pharmaceutical datasets.
+            {t.safetyVerifiedSourcesBody}
           </p>
         </div>
 
@@ -29,9 +36,9 @@ export const SafetyPage: React.FC = () => {
           <div className="p-3 bg-blue-50 text-blue-600 rounded-xl w-fit">
             <Lock className="w-6 h-6" />
           </div>
-          <h3 className="font-bold text-slate-900">Uncertain OCR Guardrails</h3>
+          <h3 className="font-bold text-slate-900">{t.safetyOcrGuardrailsTitle}</h3>
           <p className="text-sm text-slate-600 leading-relaxed">
-            Optical Character Recognition outputs are treated strictly as hypotheses until explicit user confirmation is provided.
+            {t.safetyOcrGuardrailsBody}
           </p>
         </div>
       </div>

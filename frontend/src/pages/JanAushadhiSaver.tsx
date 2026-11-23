@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { useLanguage } from "../context/LanguageContext";
 
 interface GenericMedicineItem {
   brand_name: string;
@@ -28,6 +29,7 @@ interface JanAushadhiSaverProps {
 const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 export function JanAushadhiSaver({ initialMedicines = [] }: JanAushadhiSaverProps) {
+  const { t } = useLanguage();
   const location = useLocation();
   const routedMedicines: string[] = Array.isArray(location.state?.medicines)
     ? location.state.medicines
@@ -47,7 +49,7 @@ export function JanAushadhiSaver({ initialMedicines = [] }: JanAushadhiSaverProp
 
   const fetchComparison = async (meds: string[]) => {
     if (meds.length === 0) {
-      setError("Please enter at least one medicine brand name.");
+      setError(t.saverEmptyInputError);
       return;
     }
 
@@ -63,13 +65,13 @@ export function JanAushadhiSaver({ initialMedicines = [] }: JanAushadhiSaverProp
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || `Request failed with status ${res.status}`);
+        throw new Error(errData.detail || `${t.saverRequestFailed} (${res.status})`);
       }
 
       const data: GenericComparisonResponse = await res.json();
       setResult(data);
     } catch (err: any) {
-      setError(err.message || "Failed to fetch Jan Aushadhi comparison.");
+      setError(err.message || t.saverFetchError);
     } finally {
       setLoading(false);
     }
@@ -93,18 +95,18 @@ export function JanAushadhiSaver({ initialMedicines = [] }: JanAushadhiSaverProp
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-6">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-          <h2 className="text-2xl font-bold text-slate-900">
-            Jan Aushadhi Generic Cost Saver
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
+            {t.saverPageTitle}
           </h2>
           <span className="px-3 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">
-            PMBJP Affordability Engine
+            {t.saverEngineBadge}
           </span>
         </div>
-        <p className="text-sm text-slate-600 mb-4">
-          Compare branded prescription prices against equivalent Indian Pharmacopoeia (IP) generic medicines available at Jan Aushadhi Kendras.
+        <p className="text-xs sm:text-sm text-slate-600 mb-4">
+          {t.saverPageSubtitle}
         </p>
 
         <form onSubmit={handleCompare} className="flex flex-col sm:flex-row gap-3">
@@ -112,15 +114,15 @@ export function JanAushadhiSaver({ initialMedicines = [] }: JanAushadhiSaverProp
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder="e.g., Augmentin 625 Duo, Telma 40, Dolo 650"
+            placeholder={t.saverInputPlaceholder}
             className="flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-sm transition"
+            className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-sm transition cursor-pointer"
           >
-            {loading ? "Calculating Savings..." : "Compare Generic Prices"}
+            {loading ? t.saverCalculatingBtn : t.saverCompareBtn}
           </button>
         </form>
 
@@ -133,24 +135,24 @@ export function JanAushadhiSaver({ initialMedicines = [] }: JanAushadhiSaverProp
 
       {result && (
         <>
-          <div className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-6 shadow-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-5 sm:p-6 shadow-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <p className="text-xs uppercase tracking-wider text-emerald-100 font-semibold">
-                Estimated Prescription Savings
+                {t.estimatedSavings}
               </p>
-              <h3 className="text-3xl font-extrabold mt-1">
-                Save ₹{result.total_savings_inr.toFixed(0)}{" "}
-                <span className="text-lg font-medium text-emerald-100">
-                  ({result.overall_savings_percent}% off)
+              <h3 className="text-2xl sm:text-3xl font-extrabold mt-1">
+                {t.saverSaveWord} ₹{result.total_savings_inr.toFixed(0)}{" "}
+                <span className="text-base sm:text-lg font-medium text-emerald-100">
+                  ({result.overall_savings_percent}% {t.saverOffWord})
                 </span>
               </h3>
               <p className="text-xs text-emerald-100 mt-1">
-                Branded Est.: ₹{result.total_branded_inr.toFixed(0)} → Jan Aushadhi Est.: ₹
-                {result.total_generic_inr.toFixed(0)}
+                {t.saverBrandedEstLabel}: ₹{result.total_branded_inr.toFixed(0)} →{" "}
+                {t.saverJanAushadhiEstLabel}: ₹{result.total_generic_inr.toFixed(0)}
               </p>
             </div>
             <div className="bg-white/15 backdrop-blur-sm rounded-xl px-4 py-3 text-xs max-w-xs">
-              Same active chemical salt &amp; therapeutic strength under Indian Pharmacopoeia (IP) standards.
+              {t.saverIpStandardNote}
             </div>
           </div>
 
@@ -164,29 +166,29 @@ export function JanAushadhiSaver({ initialMedicines = [] }: JanAushadhiSaverProp
                   <div className="flex items-start justify-between gap-2">
                     <h4 className="font-bold text-slate-900 text-base">{item.brand_name}</h4>
                     <span className="shrink-0 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-                      Save {item.savings_percent}%
+                      {t.saverSaveWord} {item.savings_percent}%
                     </span>
                   </div>
                   <p className="text-xs font-medium text-teal-700 mt-1">
-                    Generic IP Salt: {item.active_salt_ip} ({item.pack_unit})
+                    {t.saverGenericIpSaltLabel}: {item.active_salt_ip} ({item.pack_unit})
                   </p>
                 </div>
 
                 <div className="bg-slate-50 rounded-xl p-3 flex items-center justify-between text-sm">
                   <div>
-                    <span className="block text-xs text-slate-500">Branded MRP</span>
+                    <span className="block text-xs text-slate-500">{t.brandedPrice}</span>
                     <span className="line-through text-slate-500 font-medium">
                       ₹{item.estimated_brand_mrp_inr}
                     </span>
                   </div>
                   <div className="text-center">
-                    <span className="block text-xs text-slate-500">Jan Aushadhi</span>
+                    <span className="block text-xs text-slate-500">{t.saverJanAushadhiShort}</span>
                     <span className="font-bold text-emerald-700 text-base">
                       ₹{item.estimated_jan_aushadhi_mrp_inr}
                     </span>
                   </div>
                   <div className="text-right">
-                    <span className="block text-xs text-slate-500">You Save</span>
+                    <span className="block text-xs text-slate-500">{t.saverYouSaveLabel}</span>
                     <span className="font-bold text-slate-900">₹{item.savings_inr}</span>
                   </div>
                 </div>

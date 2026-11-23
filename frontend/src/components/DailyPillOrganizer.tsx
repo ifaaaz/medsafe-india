@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sunrise, Sun, Moon, Utensils, Share2, CalendarClock } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface DailyPillOrganizerProps {
   medicines: string[];
@@ -28,12 +29,9 @@ const SLOT_MEAL_OPTIONS: Record<SlotKey, MealTimingLabel[]> = {
   night: ['After Dinner', 'Before Dinner', 'After Food'],
 };
 
-// Schedules every medicine 2 times (Morning + Night) or 3 times (Morning + Afternoon + Night)
-// with slot-aware meal timings (e.g. Before Breakfast in Morning -> Before Dinner at Night)
 function getDefaultSchedule(med: string, index: number): MedicineScheduleConfig {
   const lower = med.toLowerCase();
 
-  // PPIs / Gastroprotective agents -> 2 times daily (Before Breakfast & Before Dinner)
   if (
     lower.includes('pan') ||
     lower.includes('omez') ||
@@ -53,7 +51,6 @@ function getDefaultSchedule(med: string, index: number): MedicineScheduleConfig 
     };
   }
 
-  // Explicitly 3-times-daily (TID) medications -> Morning + Afternoon + Night
   if (
     lower.includes('dolo') ||
     lower.includes('paracetamol') ||
@@ -75,7 +72,6 @@ function getDefaultSchedule(med: string, index: number): MedicineScheduleConfig 
     };
   }
 
-  // Explicitly 2-times-daily (BD) medications -> Morning + Night
   if (
     lower.includes('augmentin') ||
     lower.includes('zerodol') ||
@@ -97,7 +93,6 @@ function getDefaultSchedule(med: string, index: number): MedicineScheduleConfig 
     };
   }
 
-  // Any other random / unrecognized drug -> alternates between 3 times (M+A+N) and 2 times (M+N)
   const isThreeTimesDaily = index % 2 === 0;
   return {
     name: med,
@@ -115,6 +110,7 @@ function getDefaultSchedule(med: string, index: number): MedicineScheduleConfig 
 }
 
 export const DailyPillOrganizer: React.FC<DailyPillOrganizerProps> = ({ medicines }) => {
+  const { t } = useLanguage();
   const [schedules, setSchedules] = useState<MedicineScheduleConfig[]>([]);
 
   useEffect(() => {
@@ -125,6 +121,27 @@ export const DailyPillOrganizer: React.FC<DailyPillOrganizerProps> = ({ medicine
   }, [medicines]);
 
   if (medicines.length === 0) return null;
+
+  const translateMealTiming = (timing: MealTimingLabel): string => {
+    switch (timing) {
+      case 'Before Breakfast':
+        return t.beforeBreakfast;
+      case 'After Breakfast':
+        return t.afterBreakfast;
+      case 'Before Lunch':
+        return t.beforeLunch;
+      case 'After Lunch':
+        return t.afterLunch;
+      case 'Before Dinner':
+        return t.beforeDinner;
+      case 'After Dinner':
+        return t.afterDinner;
+      case 'After Food':
+        return t.afterFood;
+      default:
+        return timing;
+    }
+  };
 
   const toggleSlot = (medName: string, slot: SlotKey) => {
     setSchedules((prev) =>
@@ -167,22 +184,22 @@ export const DailyPillOrganizer: React.FC<DailyPillOrganizerProps> = ({ medicine
   const handleWhatsAppShare = () => {
     const formatList = (list: MedicineScheduleConfig[], slot: SlotKey) =>
       list.length > 0
-        ? list.map((i) => `• ${i.name} (${i.mealTimings[slot]})`).join('\n')
-        : '• None';
+        ? list.map((i) => `• ${i.name} (${translateMealTiming(i.mealTimings[slot])})`).join('\n')
+        : `• ${t.pillNoneLabel}`;
 
     const message = [
-      '*MedSafe India — Daily Pill Schedule*',
+      `*${t.pillWhatsappHeader}*`,
       '',
-      '*Morning:*',
+      `*${t.morning}:*`,
       formatList(morning, 'morning'),
       '',
-      '*Afternoon:*',
+      `*${t.afternoon}:*`,
       formatList(afternoon, 'afternoon'),
       '',
-      '*Night:*',
+      `*${t.night}:*`,
       formatList(night, 'night'),
       '',
-      '_Generated via MedSafe India Clinical Safety Assistant_',
+      `_${t.pillWhatsappFooter}_`,
     ].join('\n');
 
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
@@ -200,7 +217,7 @@ export const DailyPillOrganizer: React.FC<DailyPillOrganizerProps> = ({ medicine
   }[] = [
     {
       key: 'morning',
-      title: 'Morning',
+      title: t.morning,
       timeRange: '8:00 AM – 9:30 AM',
       icon: Sunrise,
       accent: 'border-amber-200 bg-amber-50/60',
@@ -210,7 +227,7 @@ export const DailyPillOrganizer: React.FC<DailyPillOrganizerProps> = ({ medicine
     },
     {
       key: 'afternoon',
-      title: 'Afternoon',
+      title: t.afternoon,
       timeRange: '1:00 PM – 2:30 PM',
       icon: Sun,
       accent: 'border-sky-200 bg-sky-50/60',
@@ -220,7 +237,7 @@ export const DailyPillOrganizer: React.FC<DailyPillOrganizerProps> = ({ medicine
     },
     {
       key: 'night',
-      title: 'Night',
+      title: t.night,
       timeRange: '8:30 PM – 10:00 PM',
       icon: Moon,
       accent: 'border-indigo-200 bg-indigo-50/60',
@@ -239,10 +256,10 @@ export const DailyPillOrganizer: React.FC<DailyPillOrganizerProps> = ({ medicine
           </div>
           <div>
             <h3 className="text-sm sm:text-base font-bold text-slate-900">
-              Visual Daily Pill Organizer
+              {t.pillOrganizerTitle}
             </h3>
             <p className="text-xs text-slate-500">
-              2x / 3x daily Morning, Afternoon &amp; Night schedule — tap M / A / N or meal badges to adjust
+              {t.pillOrganizerSubtitle}
             </p>
           </div>
         </div>
@@ -253,14 +270,14 @@ export const DailyPillOrganizer: React.FC<DailyPillOrganizerProps> = ({ medicine
           className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition cursor-pointer"
         >
           <Share2 className="w-3.5 h-3.5" />
-          <span>Share Schedule on WhatsApp</span>
+          <span>{t.pillShareScheduleBtn}</span>
         </button>
       </div>
 
       {/* Quick Interactive Frequency Customizer Bar */}
       <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
         <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-          Customize Timing (Morning • Afternoon • Night)
+          {t.pillCustomizeTimingLabel}
         </p>
         <div className="flex flex-wrap gap-2">
           {schedules.map((item) => (
@@ -274,9 +291,9 @@ export const DailyPillOrganizer: React.FC<DailyPillOrganizerProps> = ({ medicine
               <div className="flex items-center gap-1">
                 {(
                   [
-                    { key: 'morning', label: 'M' },
-                    { key: 'afternoon', label: 'A' },
-                    { key: 'night', label: 'N' },
+                    { key: 'morning', label: t.pillShortMorning },
+                    { key: 'afternoon', label: t.pillShortAfternoon },
+                    { key: 'night', label: t.pillShortNight },
                   ] as const
                 ).map(({ key, label }) => {
                   const active = item.slots[key];
@@ -305,7 +322,7 @@ export const DailyPillOrganizer: React.FC<DailyPillOrganizerProps> = ({ medicine
       {/* 3-Column Pillbox Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {slots.map(({ key, title, timeRange, icon: Icon, accent, badge, iconColor, items }) => (
-          <div key={title} className={`p-3.5 rounded-2xl border ${accent} flex flex-col justify-between`}>
+          <div key={key} className={`p-3.5 rounded-2xl border ${accent} flex flex-col justify-between`}>
             <div>
               <div className="flex items-center justify-between mb-2.5">
                 <div className="flex items-center gap-1.5">
@@ -319,7 +336,7 @@ export const DailyPillOrganizer: React.FC<DailyPillOrganizerProps> = ({ medicine
 
               {items.length === 0 ? (
                 <p className="text-xs text-slate-400 italic py-4 text-center">
-                  No tablets scheduled
+                  {t.pillNoTabletsScheduled}
                 </p>
               ) : (
                 <ul className="space-y-2">
@@ -335,7 +352,7 @@ export const DailyPillOrganizer: React.FC<DailyPillOrganizerProps> = ({ medicine
                         <button
                           type="button"
                           onClick={() => cycleMealTiming(pill.name, key)}
-                          title="Click to switch meal timing for this slot"
+                          title={t.pillSwitchMealTooltip}
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold shrink-0 cursor-pointer transition ${
                             isBeforeMeal
                               ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
@@ -343,7 +360,7 @@ export const DailyPillOrganizer: React.FC<DailyPillOrganizerProps> = ({ medicine
                           }`}
                         >
                           <Utensils className="w-2.5 h-2.5" />
-                          <span>{timing}</span>
+                          <span>{translateMealTiming(timing)}</span>
                         </button>
                       </li>
                     );

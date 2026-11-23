@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface MedicineLookupResult {
   brand_name: string;
@@ -11,6 +12,7 @@ interface MedicineLookupResult {
 }
 
 export const MedicineCheckerPage: React.FC = () => {
+  const { t } = useLanguage();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<MedicineLookupResult | null>(null);
@@ -30,12 +32,12 @@ export const MedicineCheckerPage: React.FC = () => {
       );
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.detail || 'Could not retrieve medicine details.');
+        throw new Error(errData.detail || t.checkerErrorFallback);
       }
       const data: MedicineLookupResult = await response.json();
       setResult(data);
     } catch (err: any) {
-      setError(err.message || 'Failed to connect to backend server.');
+      setError(err.message || t.checkerConnectionError);
       setResult(null);
     } finally {
       setLoading(false);
@@ -45,11 +47,13 @@ export const MedicineCheckerPage: React.FC = () => {
   const quickExamples = ['Dolo 650', 'Augmentin 625', 'Pan-D', 'Ecosprin 75'];
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-4xl mx-auto p-4 sm:p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Medicine &amp; Brand Checker</h1>
-        <p className="text-sm text-gray-600 mt-1">
-          Search any Indian medicine brand or generic salt to view its therapeutic uses, active ingredients, and safety details.
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+          {t.checkerPageTitle}
+        </h1>
+        <p className="text-xs sm:text-sm text-gray-600 mt-1">
+          {t.checkerPageSubtitle}
         </p>
       </div>
 
@@ -59,28 +63,28 @@ export const MedicineCheckerPage: React.FC = () => {
         className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm mb-6"
       >
         <label className="block text-sm font-semibold text-gray-700 mb-2">
-          Search Medicine Brand or Generic Name
+          {t.checkerSearchLabel}
         </label>
         <div className="flex flex-col sm:flex-row gap-3">
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="e.g., Dolo 650, Augmentin 625, Telma 40, Azithral 500..."
+            placeholder={t.checkerSearchPlaceholder}
             className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
           />
           <button
             type="submit"
             disabled={loading || !query.trim()}
-            className="px-6 py-2.5 bg-emerald-700 text-white text-sm font-semibold rounded-lg hover:bg-emerald-800 disabled:bg-gray-400 transition-colors"
+            className="px-6 py-2.5 bg-emerald-700 text-white text-sm font-semibold rounded-lg hover:bg-emerald-800 disabled:bg-gray-400 transition-colors cursor-pointer"
           >
-            {loading ? 'Searching...' : 'Check Uses'}
+            {loading ? t.checkerSearchingBtn : t.checkerCheckUsesBtn}
           </button>
         </div>
 
         {/* Quick Click Suggestions */}
         <div className="flex flex-wrap items-center gap-2 mt-3">
-          <span className="text-xs text-gray-500">Try:</span>
+          <span className="text-xs text-gray-500">{t.checkerTryLabel}</span>
           {quickExamples.map((med) => (
             <button
               key={med}
@@ -89,7 +93,7 @@ export const MedicineCheckerPage: React.FC = () => {
                 setQuery(med);
                 handleSearch(e, med);
               }}
-              className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
+              className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 cursor-pointer"
             >
               {med}
             </button>
@@ -107,7 +111,7 @@ export const MedicineCheckerPage: React.FC = () => {
       {/* Empty State Placeholder */}
       {!result && !loading && !error && (
         <div className="p-10 rounded-xl border border-gray-200 bg-white text-center text-sm text-gray-500">
-          Enter a medicine brand name above to view its clinical uses and active composition.
+          {t.checkerEmptyState}
         </div>
       )}
 
@@ -116,7 +120,7 @@ export const MedicineCheckerPage: React.FC = () => {
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="p-5 border-b border-gray-100 flex flex-wrap justify-between items-start gap-3 bg-emerald-50/40">
             <div>
-              <div className="flex items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <h2 className="text-xl font-bold text-gray-900">{result.brand_name}</h2>
                 {result.strength && (
                   <span className="px-2.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-700 rounded-md border border-gray-200">
@@ -125,7 +129,8 @@ export const MedicineCheckerPage: React.FC = () => {
                 )}
               </div>
               <p className="text-sm text-gray-600 mt-1">
-                Generic Composition: <span className="font-medium text-gray-800">{result.generic_name}</span>
+                {t.genericCompositionLabel}:{' '}
+                <span className="font-medium text-gray-800">{result.generic_name}</span>
               </p>
             </div>
 
@@ -138,7 +143,7 @@ export const MedicineCheckerPage: React.FC = () => {
             {/* Therapeutic Uses Section */}
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-800 mb-2">
-                Primary Uses &amp; Clinical Indications
+                {t.primaryUsesHeading}
               </h3>
               <p className="text-sm text-gray-800 leading-relaxed bg-gray-50 p-4 rounded-lg border border-gray-100">
                 {result.therapeutic_uses}
@@ -148,7 +153,7 @@ export const MedicineCheckerPage: React.FC = () => {
             {/* Active Ingredients */}
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
-                Active Chemical Ingredients
+                {t.activeChemicalIngredientsHeading}
               </h3>
               <div className="flex flex-wrap gap-2">
                 {result.active_ingredients.map((ing, idx) => (

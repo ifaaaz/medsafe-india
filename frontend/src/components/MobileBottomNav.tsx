@@ -7,14 +7,17 @@ import {
   IndianRupee,
   Pill,
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export const MobileBottomNav: React.FC = () => {
+  const { t } = useLanguage();
+
   const tabs = [
-    { to: '/', label: 'Home', icon: Home, end: true },
-    { to: '/scanner', label: 'Scanner', icon: FileText },
-    { to: '/checker', label: 'Checker', icon: ShieldAlert },
-    { to: '/generic-saver', label: 'Save 80%', icon: IndianRupee },
-    { to: '/my-medicines', label: 'My Meds', icon: Pill },
+    { to: '/', label: t.mobileNavHome, icon: Home, end: true },
+    { to: '/scanner', label: t.mobileNavScanner, icon: FileText },
+    { to: '/checker', label: t.mobileNavChecker, icon: ShieldAlert },
+    { to: '/generic-saver', label: t.mobileNavSave, icon: IndianRupee },
+    { to: '/my-medicines', label: t.mobileNavMyMeds, icon: Pill },
   ];
 
   return (
