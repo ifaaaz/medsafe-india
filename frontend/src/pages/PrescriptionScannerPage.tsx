@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IndianRupee } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { SearchBar } from '../components/SearchBar';
 import { MedicineCard } from '../components/MedicineCard';
 import { InteractionCard } from '../components/InteractionCard';
@@ -12,7 +13,7 @@ import { DailyPillOrganizer } from '../components/DailyPillOrganizer';
 
 interface PrescriptionRecord {
   id: number;
-  label: string;
+  index: number;
   uploadedAt: string;
   medicines: any[];
 }
@@ -20,6 +21,7 @@ interface PrescriptionRecord {
 export const PrescriptionScannerPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [prescriptions, setPrescriptions] = useState<PrescriptionRecord[]>([]);
   const [combinedAnalysis, setCombinedAnalysis] = useState<any>(null);
   const [checkingInteractions, setCheckingInteractions] = useState<boolean>(false);
@@ -27,10 +29,7 @@ export const PrescriptionScannerPage: React.FC = () => {
   const handleNewPrescriptionScan = (data: any) => {
     const newRecord: PrescriptionRecord = {
       id: Date.now(),
-      label:
-        prescriptions.length === 0
-          ? 'Prescription #1 (Existing / Baseline Regimen)'
-          : `Prescription #${prescriptions.length + 1} (New Consultation)`,
+      index: prescriptions.length + 1,
       uploadedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       medicines: data.detected_medicines || [],
     };
@@ -118,10 +117,10 @@ export const PrescriptionScannerPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-5">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-            Multi-Prescription Safety Checker
+            {t.scannerPageTitle}
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-            Upload your existing prescription first, then add new prescriptions to check cross-prescription interactions.
+            {t.scannerPageSubtitle}
           </p>
         </div>
         {prescriptions.length > 0 && (
@@ -134,8 +133,8 @@ export const PrescriptionScannerPage: React.FC = () => {
               <IndianRupee className="w-4 h-4 shrink-0" />
               <span className="truncate">
                 {allDetectedBrands.length > 0
-                  ? `Generic Prices (${allDetectedBrands.length})`
-                  : 'Generic Prices'}
+                  ? `${t.genericPricesBtn} (${allDetectedBrands.length})`
+                  : t.genericPricesBtn}
               </span>
             </button>
             <button
@@ -143,7 +142,7 @@ export const PrescriptionScannerPage: React.FC = () => {
               onClick={handleClearAll}
               className="px-3 py-2 text-xs sm:text-sm font-medium text-rose-600 border border-rose-300 rounded-xl hover:bg-rose-50 transition cursor-pointer"
             >
-              Clear All
+              {t.clearAllBtn}
             </button>
           </div>
         )}
@@ -152,9 +151,9 @@ export const PrescriptionScannerPage: React.FC = () => {
       {/* 3-Step Clinical Workflow Stepper */}
       <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-5">
         {[
-          { step: 1, title: 'Upload Rx', desc: 'Scan printed or handwritten Rx' },
-          { step: 2, title: 'Safety & Voice', desc: 'Interactions, pillbox & audio' },
-          { step: 3, title: 'Generic Saver', desc: 'Compare Jan Aushadhi MRP' },
+          { step: 1, title: t.step1Title, desc: t.step1Desc },
+          { step: 2, title: t.step2Title, desc: t.step2Desc },
+          { step: 3, title: t.step3Title, desc: t.step3Desc },
         ].map(({ step, title, desc }) => {
           const isCompleted = activeStep > step;
           const isCurrent = activeStep === step;
@@ -193,8 +192,8 @@ export const PrescriptionScannerPage: React.FC = () => {
       <div className="bg-teal-50/50 p-4 rounded-2xl border border-teal-100 mb-6">
         <p className="text-xs sm:text-sm font-semibold text-teal-950 mb-1.5">
           {prescriptions.length === 0
-            ? 'Step 1: Upload Existing / Ongoing Prescription'
-            : `Step ${prescriptions.length + 1}: Upload New Prescription to Compare`}
+            ? t.uploadStep1Prompt
+            : `${t.uploadNextStepPrefix} #${prescriptions.length + 1}: ${t.uploadNextStepPrompt}`}
         </p>
         <SearchBar onSearchResult={handleNewPrescriptionScan} />
       </div>
@@ -205,24 +204,28 @@ export const PrescriptionScannerPage: React.FC = () => {
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
             <div>
               <h2 className="text-base sm:text-lg font-bold text-slate-900">
-                Combined Patient Safety Report ({prescriptions.length}{' '}
-                {prescriptions.length === 1 ? 'Prescription' : 'Prescriptions'})
+                {t.combinedReportTitle} ({prescriptions.length}{' '}
+                {prescriptions.length === 1 ? t.prescriptionSingular : t.prescriptionPlural})
               </h2>
               <p className="text-xs text-slate-500">
-                Cross-checking {combinedAnalysis.total_ingredients_checked} unique active ingredients across all active medications
+                {t.crossCheckingLabel}: {combinedAnalysis.total_ingredients_checked}{' '}
+                {t.uniqueActiveIngredientsLabel}
               </p>
             </div>
-            <StatusBadge status={checkingInteractions ? 'Checking...' : combinedAnalysis.safety_status} />
+            <StatusBadge
+              status={checkingInteractions ? t.checkingStatus : combinedAnalysis.safety_status}
+            />
           </div>
 
           {combinedAnalysis.interactions?.length === 0 ? (
             <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs sm:text-sm">
-              ✓ <strong>No Interactions Detected:</strong> Medications across your uploaded prescriptions do not show known conflicting interactions.
+              ✓ <strong>{t.noInteractionsTitle}:</strong> {t.noInteractionsDesc}
             </div>
           ) : (
             <div className="space-y-3">
               <p className="text-xs sm:text-sm font-semibold text-rose-700">
-                ⚠️ Warning: {combinedAnalysis.total_interactions_found} Drug-Drug Interaction(s) Found Across Prescriptions!
+                ⚠️ {t.interactionsFoundPrefix}: {combinedAnalysis.total_interactions_found}{' '}
+                {t.interactionsFoundSuffix}
               </p>
               {combinedAnalysis.interactions.map((item: any, idx: number) => (
                 <InteractionCard
@@ -262,21 +265,27 @@ export const PrescriptionScannerPage: React.FC = () => {
           <div key={rx.id} className="p-4 sm:p-5 border border-slate-200 rounded-2xl bg-slate-50/70">
             <div className="flex justify-between items-center mb-3">
               <div>
-                <h3 className="text-sm sm:text-base font-bold text-slate-900">{rx.label}</h3>
-                <span className="text-xs text-slate-500">Scanned at {rx.uploadedAt}</span>
+                <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                  {rx.index === 1
+                    ? t.rxBaselineLabel
+                    : `${t.rxConsultationLabel} #${rx.index}`}
+                </h3>
+                <span className="text-xs text-slate-500">
+                  {t.scannedAtLabel} {rx.uploadedAt}
+                </span>
               </div>
               <button
                 type="button"
                 onClick={() => handleRemovePrescription(rx.id)}
                 className="text-xs text-slate-500 hover:text-rose-600 underline cursor-pointer"
               >
-                Remove
+                {t.removeBtn}
               </button>
             </div>
 
             {rx.medicines.length === 0 ? (
               <p className="text-xs sm:text-sm text-slate-500 italic">
-                No matching database medicines found in this scan.
+                {t.noMatchingMedsFound}
               </p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">

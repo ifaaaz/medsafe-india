@@ -26,7 +26,7 @@ export const Sidebar: React.FC = () => {
     <aside className="w-64 bg-white border-r border-slate-200/90 hidden lg:flex flex-col p-4 shrink-0 min-h-[calc(100vh-4.25rem)] shadow-[4px_0_24px_-12px_rgba(4,24,51,0.06)]">
       <div className="space-y-1.5 flex-1">
         <p className="px-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2.5">
-          Clinical Workspace
+          {t.clinicalWorkspace}
         </p>
 
         <Link to="/checker" className={linkClass('/checker')}>
@@ -46,7 +46,7 @@ export const Sidebar: React.FC = () => {
 
         <Link to="/generic-saver" className={linkClass('/generic-saver')}>
           <IndianRupee className={iconClass('/generic-saver')} />
-          <span>{(t as any).genericSaver || 'Generic Cost Saver'}</span>
+          <span>{t.genericSaver}</span>
         </Link>
 
         <Link to="/safety" className={linkClass('/safety')}>
