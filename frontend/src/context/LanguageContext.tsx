@@ -4,6 +4,42 @@ export type AppLanguage = "en" | "hi" | "kn";
 
 const TRANSLATIONS = {
   en: {
+    // LoginPage
+    loginPlatformPill: "CLINICAL MEDICATION SAFETY PLATFORM • INDIA",
+    loginHeroDesc:
+      "AI-powered multi-prescription drug interaction screening, PMBJP Jan Aushadhi generic cost savings, and multilingual caregiver voice guidance.",
+    loginFeature1Title: "Cross-Prescription Safety Engine",
+    loginFeature1Desc:
+      "Detects hidden drug–drug interactions, duplicate active salts, and condition contraindications across multiple doctors.",
+    loginFeature2Title: "Jan Aushadhi Generic Cost Saver",
+    loginFeature2Desc:
+      "Matches expensive branded prescriptions to Indian Pharmacopoeia (IP) equivalents with up to 80% MRP savings.",
+    loginFeature3Title: "Kannada, Hindi & English Caregiver Voice",
+    loginFeature3Desc:
+      "Translates complex pharmacology warnings into clear spoken summaries for elderly patients and families.",
+    loginFooterLeft: "Aligned with Indian Pharmacopoeia (IP) & PMBJP Standards",
+    loginFooterRight: "Built for Safer Prescriptions",
+    loginMobileTagline: "Prescription Safety • Jan Aushadhi Savings • Voice Care",
+    loginHeading: "Sign in to MedSafe",
+    loginSubheading:
+      "Personalize drug screening with your health profile or launch an instant demo.",
+    loginJudgeAccessTitle: "Instant Evaluator / Judge Access",
+    loginPatientDemoBtn: "Patient Demo",
+    loginClinicianDemoBtn: "Clinician Demo",
+    loginOrDivider: "or sign in with profile",
+    loginRoleDoctorPharmacist: "Doctor / Pharmacist",
+    loginUsernameLabel: "Username",
+    loginUsernamePlaceholder: "Enter your username",
+    loginEmailLabel: "Email Address",
+    loginPasswordLabel: "Password",
+    loginConditionsLabel: "Pre-Existing Conditions (Auto-screened on every scan)",
+    loginSubmitBtn: "Continue to Clinical Workspace",
+    condGastricUlcer: "Gastric Ulcer",
+    condKidneyDisease: "Kidney Disease",
+    condLiverDisease: "Liver Disease",
+    condPregnancy: "Pregnancy / Breastfeeding",
+    condAlcohol: "Alcohol",
+
     // Sidebar & Workspace
     clinicalWorkspace: "Clinical Workspace",
     medicineChecker: "Medicine Checker",
@@ -222,6 +258,42 @@ const TRANSLATIONS = {
     disclaimer: "Clinical decision-support tool only. Always consult a licensed doctor.",
   },
   hi: {
+    // LoginPage
+    loginPlatformPill: "क्लिनिकल दवा सुरक्षा प्लेटफ़ॉर्म • भारत",
+    loginHeroDesc:
+      "AI-आधारित मल्टी-प्रिस्क्रिप्शन ड्रग इंटरैक्शन जांच, PMBJP जन औषधि बचत और बहुभाषी देखभालकर्ता वॉयस मार्गदर्शन।",
+    loginFeature1Title: "क्रॉस-प्रिस्क्रिप्शन सुरक्षा इंजन",
+    loginFeature1Desc:
+      "अलग-अलग डॉक्टरों के पर्चों में छिपे ड्रग इंटरैक्शन, डुप्लिकेट सक्रिय तत्व (Salts) और स्वास्थ्य जोखिमों को पहचानता है।",
+    loginFeature2Title: "जन औषधि जेनेरिक बचत कैलकुलेटर",
+    loginFeature2Desc:
+      "महंगी ब्रांडेड दवाइयों की तुलना समान भारतीय फार्माकोपिया (IP) जेनेरिक विकल्पों से कर 80% तक बचत दिखाता है।",
+    loginFeature3Title: "कन्नड़, हिंदी और अंग्रेज़ी वॉयस सहायक",
+    loginFeature3Desc:
+      "बुजुर्ग मरीज़ों और परिवार के सदस्यों के लिए जटिल दवा चेतावनियों को स्पष्ट बोलचाल की भाषा में समझाता है।",
+    loginFooterLeft: "भारतीय फार्माकोपिया (IP) और PMBJP मानकों के अनुरूप",
+    loginFooterRight: "सुरक्षित प्रिस्क्रिप्शन के लिए निर्मित",
+    loginMobileTagline: "प्रिस्क्रिप्शन सुरक्षा • जन औषधि बचत • वॉयस केयर",
+    loginHeading: "मेडसेफ में साइन इन करें",
+    loginSubheading:
+      "अपनी स्वास्थ्य प्रोफ़ाइल के साथ जांच व्यक्तिगत करें या तुरंत डेमो शुरू करें।",
+    loginJudgeAccessTitle: "त्वरित परीक्षक / जज एक्सेस",
+    loginPatientDemoBtn: "मरीज़ डेमो",
+    loginClinicianDemoBtn: "डॉक्टर डेमो",
+    loginOrDivider: "या प्रोफ़ाइल से साइन इन करें",
+    loginRoleDoctorPharmacist: "डॉक्टर / फार्मासिस्ट",
+    loginUsernameLabel: "उपयोगकर्ता नाम (Username)",
+    loginUsernamePlaceholder: "अपना नाम दर्ज करें",
+    loginEmailLabel: "ईमेल पता",
+    loginPasswordLabel: "पासवर्ड",
+    loginConditionsLabel: "पहले से मौजूद स्वास्थ्य स्थितियां (हर स्कैन पर स्वतः जांच)",
+    loginSubmitBtn: "क्लिनिकल कार्यक्षेत्र में जाएं",
+    condGastricUlcer: "पेट का अल्सर (Gastric Ulcer)",
+    condKidneyDisease: "किडनी रोग",
+    condLiverDisease: "लिवर रोग",
+    condPregnancy: "गर्भावस्था / स्तनपान",
+    condAlcohol: "शराब (Alcohol)",
+
     // Sidebar & Workspace
     clinicalWorkspace: "क्लिनिकल कार्यक्षेत्र",
     medicineChecker: "दवा और रिएक्शन जांचें",
@@ -440,6 +512,42 @@ const TRANSLATIONS = {
     disclaimer: "यह केवल जानकारी के लिए है। हमेशा डॉक्टर की सलाह लें।",
   },
   kn: {
+    // LoginPage
+    loginPlatformPill: "ಕ್ಲಿನಿಕಲ್ ಔಷಧ ಸುರಕ್ಷತಾ ವೇದಿಕೆ • ಭಾರತ",
+    loginHeroDesc:
+      "AI-ಆಧಾರಿತ ಬಹು-ಚೀಟಿ ಔಷಧ ಅಡ್ಡಪರಿಣಾಮ ಪರಿಶೀಲನೆ, PMBJP ಜನೌಷಧಿ ವೆಚ್ಚ ಉಳಿತಾಯ ಮತ್ತು ಬಹುಭಾಷಾ ಆರೈಕೆದಾರರ ಧ್ವನಿ ಮಾರ್ಗದರ್ಶನ.",
+    loginFeature1Title: "ಕ್ರಾಸ್-ಪ್ರಿಸ್ಕ್ರಿಪ್ಷನ್ ಸುರಕ್ಷತಾ ಎಂಜಿನ್",
+    loginFeature1Desc:
+      "ವಿವಿಧ ವೈದ್ಯರ ಚೀಟಿಗಳಲ್ಲಿ ಅಡಗಿರುವ ಔಷಧ ಅಡ್ಡಪರಿಣಾಮಗಳು, ಒಂದೇ ರೀತಿಯ ಸಕ್ರಿಯ ಅಂಶಗಳು (Salts) ಮತ್ತು ಆರೋಗ್ಯ ಅಪಾಯಗಳನ್ನು ಪತ್ತೆಹಚ್ಚುತ್ತದೆ.",
+    loginFeature2Title: "ಜನೌಷಧಿ ಜೆನೆರಿಕ್ ವೆಚ್ಚ ಉಳಿತಾಯ",
+    loginFeature2Desc:
+      "ದುಬಾರಿ ಬ್ರಾಂಡೆಡ್ ಔಷಧಿಗಳನ್ನು ಭಾರತೀಯ ಫಾರ್ಮಾಕೋಪಿಯಾ (IP) ಸಮಾನ ಜೆನೆರಿಕ್ ಔಷಧಿಗಳೊಂದಿಗೆ ಹೋಲಿಸಿ 80% ವರೆಗೆ ಉಳಿತಾಯ ತೋರಿಸುತ್ತದೆ.",
+    loginFeature3Title: "ಕನ್ನಡ, ಹಿಂದಿ ಮತ್ತು ಇಂಗ್ಲಿಷ್ ಧ್ವನಿ ಸಹಾಯಕ",
+    loginFeature3Desc:
+      "ಹಿರಿಯ ರೋಗಿಗಳು ಮತ್ತು ಕುಟುಂಬದವರಿಗಾಗಿ ಸಂಕೀರ್ಣ ಔಷಧ ಎಚ್ಚರಿಕೆಗಳನ್ನು ಸರಳ ಆಡುಭಾಷೆಯಲ್ಲಿ ವಿವರಿಸುತ್ತದೆ.",
+    loginFooterLeft: "ಭಾರತೀಯ ಫಾರ್ಮಾಕೋಪಿಯಾ (IP) ಮತ್ತು PMBJP ಮಾನದಂಡಗಳಿಗೆ ಅನುಗುಣವಾಗಿದೆ",
+    loginFooterRight: "ಸುರಕ್ಷಿತ ಔಷಧ ಚೀಟಿಗಳಿಗಾಗಿ ನಿರ್ಮಿಸಲಾಗಿದೆ",
+    loginMobileTagline: "ಔಷಧ ಸುರಕ್ಷತೆ • ಜನೌಷಧಿ ಉಳಿತಾಯ • ಧ್ವನಿ ಆರೈಕೆ",
+    loginHeading: "ಮೆಡ್‌ಸೇಫ್‌ಗೆ ಸೈನ್ ಇನ್ ಮಾಡಿ",
+    loginSubheading:
+      "ನಿಮ್ಮ ಆರೋಗ್ಯ ಪ್ರೊಫೈಲ್‌ನೊಂದಿಗೆ ಪರಿಶೀಲನೆಯನ್ನು ವೈಯಕ್ತೀಕರಿಸಿ ಅಥವಾ ತಕ್ಷಣ ಡೆಮೊ ಪ್ರಾರಂಭಿಸಿ.",
+    loginJudgeAccessTitle: "ತ್ವರಿತ ಮೌಲ್ಯಮಾಪಕ / ಜಡ್ಜ್ ಪ್ರವೇಶ",
+    loginPatientDemoBtn: "ರೋಗಿ ಡೆಮೊ",
+    loginClinicianDemoBtn: "ವೈದ್ಯರ ಡೆಮೊ",
+    loginOrDivider: "ಅಥವಾ ಪ್ರೊಫೈಲ್‌ನೊಂದಿಗೆ ಸೈನ್ ಇನ್ ಮಾಡಿ",
+    loginRoleDoctorPharmacist: "ವೈದ್ಯರು / ಫಾರ್ಮಸಿಸ್ಟ್",
+    loginUsernameLabel: "ಬಳಕೆದಾರರ ಹೆಸರು (Username)",
+    loginUsernamePlaceholder: "ನಿಮ್ಮ ಹೆಸರನ್ನು ನಮೂದಿಸಿ",
+    loginEmailLabel: "ಇಮೇಲ್ ವಿಳಾಸ",
+    loginPasswordLabel: "ಪಾಸ್‌ವರ್ಡ್",
+    loginConditionsLabel: "ಮೊದಲೇ ಇರುವ ಆರೋಗ್ಯ ಸ್ಥಿತಿಗಳು (ಪ್ರತಿ ಸ್ಕ್ಯಾನ್‌ನಲ್ಲಿ ಸ್ವಯಂಚಾಲಿತ ಪರಿಶೀಲನೆ)",
+    loginSubmitBtn: "ವೈದ್ಯಕೀಯ ಕಾರ್ಯಕ್ಷೇತ್ರಕ್ಕೆ ಮುಂದುವರಿಯಿರಿ",
+    condGastricUlcer: "ಹೊಟ್ಟೆಯ ಹುಣ್ಣು (Gastric Ulcer)",
+    condKidneyDisease: "ಮೂತ್ರಪಿಂಡದ ಕಾಯಿಲೆ",
+    condLiverDisease: "ಯಕೃತ್ತಿನ ಕಾಯಿಲೆ (Liver)",
+    condPregnancy: "ಗರ್ಭಾವಸ್ಥೆ / ಹಾಲುಣಿಸುವಿಕೆ",
+    condAlcohol: "ಮದ್ಯಪಾನ (Alcohol)",
+
     // Sidebar & Workspace
     clinicalWorkspace: "ವೈದ್ಯಕೀಯ ಕಾರ್ಯಕ್ಷೇತ್ರ",
     medicineChecker: "ಔಷಧ ಪರಿಶೀಲನೆ",

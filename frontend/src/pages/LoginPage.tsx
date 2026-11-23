@@ -9,8 +9,10 @@ import {
   ArrowRight,
   Sparkles,
   CheckCircle2,
+  Globe,
 } from 'lucide-react';
 import { useAuth, UserRole } from '../context/AuthContext';
+import { useLanguage, AppLanguage } from '../context/LanguageContext';
 
 const HEALTH_CONDITIONS = [
   'Gastric Ulcer',
@@ -20,8 +22,15 @@ const HEALTH_CONDITIONS = [
   'Alcohol',
 ];
 
+const LANG_OPTIONS: { code: AppLanguage; label: string }[] = [
+  { code: 'en', label: 'EN' },
+  { code: 'hi', label: 'हिंदी' },
+  { code: 'kn', label: 'ಕನ್ನಡ' },
+];
+
 export const LoginPage: React.FC = () => {
   const { login, loginAsDemo } = useAuth();
+  const { lang, setLang, t } = useLanguage();
   const navigate = useNavigate();
 
   const [role, setRole] = useState<UserRole>('patient');
@@ -29,6 +38,23 @@ export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+
+  const translateCondition = (cond: string): string => {
+    switch (cond) {
+      case 'Gastric Ulcer':
+        return t.condGastricUlcer;
+      case 'Kidney Disease':
+        return t.condKidneyDisease;
+      case 'Liver Disease':
+        return t.condLiverDisease;
+      case 'Pregnancy / Breastfeeding':
+        return t.condPregnancy;
+      case 'Alcohol':
+        return t.condAlcohol;
+      default:
+        return cond;
+    }
+  };
 
   const toggleCondition = (cond: string) => {
     setSelectedConditions((prev) =>
@@ -70,7 +96,7 @@ export const LoginPage: React.FC = () => {
         <div className="relative z-10">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/15 text-emerald-300 text-xs font-semibold tracking-wide mb-8 backdrop-blur-xs">
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <span>CLINICAL MEDICATION SAFETY PLATFORM • INDIA</span>
+            <span>{t.loginPlatformPill}</span>
           </div>
 
           {/* Custom Shield & Capsule Logo + Title */}
@@ -85,13 +111,13 @@ export const LoginPage: React.FC = () => {
                 MedSafe <span className="text-emerald-400">India</span>
               </h1>
               <p className="text-xs xl:text-sm text-sky-200/80 font-medium tracking-wide mt-0.5">
-                Clinical Prescription &amp; Generic Safety Suite
+                {t.navSubtitle}
               </p>
             </div>
           </div>
 
           <p className="mt-5 text-slate-300 text-base xl:text-lg max-w-xl leading-relaxed">
-            AI-powered multi-prescription drug interaction screening, PMBJP Jan Aushadhi generic cost savings, and multilingual caregiver voice guidance.
+            {t.loginHeroDesc}
           </p>
 
           <div className="mt-9 space-y-4 max-w-lg">
@@ -100,9 +126,9 @@ export const LoginPage: React.FC = () => {
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-semibold text-white text-sm">Cross-Prescription Safety Engine</h3>
+                <h3 className="font-semibold text-white text-sm">{t.loginFeature1Title}</h3>
                 <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
-                  Detects hidden drug–drug interactions, duplicate active salts, and condition contraindications across multiple doctors.
+                  {t.loginFeature1Desc}
                 </p>
               </div>
             </div>
@@ -112,9 +138,9 @@ export const LoginPage: React.FC = () => {
                 <IndianRupee className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-semibold text-white text-sm">Jan Aushadhi Generic Cost Saver</h3>
+                <h3 className="font-semibold text-white text-sm">{t.loginFeature2Title}</h3>
                 <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
-                  Matches expensive branded prescriptions to Indian Pharmacopoeia (IP) equivalents with up to 80% MRP savings.
+                  {t.loginFeature2Desc}
                 </p>
               </div>
             </div>
@@ -124,9 +150,9 @@ export const LoginPage: React.FC = () => {
                 <Volume2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-semibold text-white text-sm">Kannada, Hindi &amp; English Caregiver Voice</h3>
+                <h3 className="font-semibold text-white text-sm">{t.loginFeature3Title}</h3>
                 <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
-                  Translates complex pharmacology warnings into clear spoken summaries for elderly patients and families.
+                  {t.loginFeature3Desc}
                 </p>
               </div>
             </div>
@@ -134,8 +160,8 @@ export const LoginPage: React.FC = () => {
         </div>
 
         <div className="relative z-10 mt-10 pt-6 border-t border-white/10 flex items-center justify-between text-xs text-sky-200/65">
-          <span>Aligned with Indian Pharmacopoeia (IP) &amp; PMBJP Standards</span>
-          <span>Built for Safer Prescriptions</span>
+          <span>{t.loginFooterLeft}</span>
+          <span>{t.loginFooterRight}</span>
         </div>
       </div>
 
@@ -153,18 +179,42 @@ export const LoginPage: React.FC = () => {
               MedSafe <span className="text-emerald-400">India</span>
             </div>
             <p className="text-[11px] text-sky-200/80 mt-1">
-              Prescription Safety • Jan Aushadhi Savings • Voice Care
+              {t.loginMobileTagline}
             </p>
           </div>
         </div>
 
         <div className="w-full max-w-md bg-white rounded-3xl shadow-[0_18px_45px_-15px_rgba(4,24,51,0.14)] border border-slate-200/90 p-6 sm:p-9 space-y-5">
+          {/* Top Language Switcher Bar */}
+          <div className="flex items-center justify-between gap-2 pb-1">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+              <Globe className="w-3.5 h-3.5 text-sky-600" />
+              <span>EN • हिंदी • ಕನ್ನಡ</span>
+            </span>
+            <div className="inline-flex items-center rounded-xl bg-slate-100 p-0.5 border border-slate-200">
+              {LANG_OPTIONS.map((opt) => (
+                <button
+                  key={opt.code}
+                  type="button"
+                  onClick={() => setLang(opt.code)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    lang === opt.code
+                      ? 'bg-[#041833] text-emerald-400 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div>
             <h2 className="text-xl sm:text-2xl font-extrabold text-[#041833]">
-              Sign in to MedSafe
+              {t.loginHeading}
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Personalize drug screening with your health profile or launch an instant demo.
+              {t.loginSubheading}
             </p>
           </div>
 
@@ -172,7 +222,7 @@ export const LoginPage: React.FC = () => {
           <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-sky-50 via-cyan-50/70 to-emerald-50 border border-sky-200/80 space-y-2.5">
             <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#062147]">
               <Sparkles className="w-3.5 h-3.5 text-sky-600" />
-              <span>Instant Evaluator / Judge Access</span>
+              <span>{t.loginJudgeAccessTitle}</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -181,7 +231,7 @@ export const LoginPage: React.FC = () => {
                 className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm shadow-emerald-600/20 transition cursor-pointer"
               >
                 <User className="w-3.5 h-3.5 shrink-0" />
-                <span>Patient Demo</span>
+                <span>{t.loginPatientDemoBtn}</span>
                 <ArrowRight className="w-3.5 h-3.5 shrink-0" />
               </button>
               <button
@@ -190,7 +240,7 @@ export const LoginPage: React.FC = () => {
                 className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#041833] hover:bg-[#082A59] text-white text-xs font-semibold shadow-sm shadow-slate-900/20 transition cursor-pointer"
               >
                 <Stethoscope className="w-3.5 h-3.5 text-sky-300 shrink-0" />
-                <span>Clinician Demo</span>
+                <span>{t.loginClinicianDemoBtn}</span>
                 <ArrowRight className="w-3.5 h-3.5 shrink-0" />
               </button>
             </div>
@@ -199,7 +249,7 @@ export const LoginPage: React.FC = () => {
           <div className="relative flex py-0.5 items-center">
             <div className="grow border-t border-slate-200" />
             <span className="shrink mx-3 text-[11px] font-medium text-slate-400 uppercase">
-              or sign in with profile
+              {t.loginOrDivider}
             </span>
             <div className="grow border-t border-slate-200" />
           </div>
@@ -216,7 +266,7 @@ export const LoginPage: React.FC = () => {
               }`}
             >
               <User className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Patient / Caregiver</span>
+              <span>{t.rolePatient}</span>
             </button>
             <button
               type="button"
@@ -228,25 +278,29 @@ export const LoginPage: React.FC = () => {
               }`}
             >
               <Stethoscope className="w-3.5 h-3.5 text-sky-600" />
-              <span>Doctor / Pharmacist</span>
+              <span>{t.loginRoleDoctorPharmacist}</span>
             </button>
           </div>
 
           <form onSubmit={handleFormSubmit} className="space-y-3.5">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Username</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                {t.loginUsernameLabel}
+              </label>
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Enter your username"
+                placeholder={t.loginUsernamePlaceholder}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                {t.loginEmailLabel}
+              </label>
               <input
                 type="email"
                 required
@@ -258,7 +312,9 @@ export const LoginPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Password</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                {t.loginPasswordLabel}
+              </label>
               <input
                 type="password"
                 required
@@ -273,7 +329,7 @@ export const LoginPage: React.FC = () => {
             {role === 'patient' && (
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Pre-Existing Conditions (Auto-screened on every scan)
+                  {t.loginConditionsLabel}
                 </label>
                 <div className="flex flex-wrap gap-1.5">
                   {HEALTH_CONDITIONS.map((cond) => {
@@ -290,7 +346,7 @@ export const LoginPage: React.FC = () => {
                         }`}
                       >
                         {active && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
-                        <span>{cond}</span>
+                        <span>{translateCondition(cond)}</span>
                       </button>
                     );
                   })}
@@ -302,7 +358,7 @@ export const LoginPage: React.FC = () => {
               type="submit"
               className="w-full py-3 rounded-xl bg-gradient-to-r from-[#041833] to-[#082A59] hover:from-[#062147] hover:to-[#0b3875] text-white font-semibold text-sm shadow-md shadow-slate-900/20 transition cursor-pointer"
             >
-              Continue to Clinical Workspace
+              {t.loginSubmitBtn}
             </button>
           </form>
         </div>
