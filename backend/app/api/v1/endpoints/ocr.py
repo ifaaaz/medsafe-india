@@ -68,8 +68,15 @@ def preprocess_image(image_bytes: bytes) -> Image.Image:
 
 
 def extract_medicines_with_vision(image: Image.Image) -> List[ExtractedRxItem]:
-    """Uses Gemini Multimodal Vision to read handwritten & printed prescriptions accurately."""
+    """Uses Gemini Multimodal Vision via explicit JPEG bytes to read handwritten prescriptions."""
     try:
+        buf = io.BytesIO()
+        image.save(buf, format="JPEG", quality=90)
+        image_part = types.Part.from_bytes(
+            data=buf.getvalue(),
+            mime_type="image/jpeg",
+        )
+
         prompt = (
             "You are a clinical pharmacist OCR assistant reading an Indian medical prescription. "
             "Extract EVERY prescribed medicine listed under Rx (ignore background watermarks or stamps). "
@@ -77,7 +84,7 @@ def extract_medicines_with_vision(image: Image.Image) -> List[ExtractedRxItem]:
             "and normalized INN active chemical ingredients."
         )
         response = generate_with_key_rotation(
-            contents=[image, prompt],
+            contents=[image_part, prompt],
             models=["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -86,9 +93,13 @@ def extract_medicines_with_vision(image: Image.Image) -> List[ExtractedRxItem]:
             ),
         )
         parsed = PrescriptionVisionResult.model_validate_json(response.text)
+        print(
+            f"[PrescriptionVision] Extracted {len(parsed.medicines)} items: "
+            f"{[m.brand_name for m in parsed.medicines]}"
+        )
         return parsed.medicines
     except Exception as e:
-        print(f"[PrescriptionVision] Vision extraction fallback triggered: {e}")
+        print(f"[PrescriptionVision] Vision extraction error: {e}")
         return []
 
 
