@@ -10,6 +10,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { CaregiverAudioSummary } from '../components/CaregiverAudioSummary';
 import { LifestyleConditionChecker } from '../components/LifestyleConditionChecker';
 import { DailyPillOrganizer } from '../components/DailyPillOrganizer';
+import { ClinicalSafetyScorecard } from '../components/ClinicalSafetyScorecard';
 
 interface PrescriptionRecord {
   id: number;
@@ -124,7 +125,7 @@ export const PrescriptionScannerPage: React.FC = () => {
           </p>
         </div>
         {prescriptions.length > 0 && (
-          <div className="grid grid-cols-2 sm:flex items-center gap-2">
+          <div className="grid grid-cols-2 sm:flex items-center gap-2 print:hidden">
             <button
               type="button"
               onClick={handleCompareGenericPrices}
@@ -149,7 +150,7 @@ export const PrescriptionScannerPage: React.FC = () => {
       </div>
 
       {/* 3-Step Clinical Workflow Stepper */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-5">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-5 print:hidden">
         {[
           { step: 1, title: t.step1Title, desc: t.step1Desc },
           { step: 2, title: t.step2Title, desc: t.step2Desc },
@@ -189,7 +190,7 @@ export const PrescriptionScannerPage: React.FC = () => {
       </div>
 
       {/* Upload Box for Next Prescription */}
-      <div className="bg-teal-50/50 p-4 rounded-2xl border border-teal-100 mb-6">
+      <div className="bg-teal-50/50 p-4 rounded-2xl border border-teal-100 mb-6 print:hidden">
         <p className="text-xs sm:text-sm font-semibold text-teal-950 mb-1.5">
           {prescriptions.length === 0
             ? t.uploadStep1Prompt
@@ -216,6 +217,13 @@ export const PrescriptionScannerPage: React.FC = () => {
               status={checkingInteractions ? t.checkingStatus : combinedAnalysis.safety_status}
             />
           </div>
+
+          {/* Executive Deterministic Safety Score Gauge + Duplicate Salt Guard + Print Handover */}
+          <ClinicalSafetyScorecard
+            prescriptions={prescriptions}
+            combinedAnalysis={combinedAnalysis}
+            allBrands={allDetectedBrands}
+          />
 
           {combinedAnalysis.interactions?.length === 0 ? (
             <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs sm:text-sm">
@@ -250,12 +258,14 @@ export const PrescriptionScannerPage: React.FC = () => {
           <DailyPillOrganizer medicines={allDetectedBrands} />
 
           {/* Multilingual Caregiver Voice Readout (English, Kannada, Hindi) */}
-          <CaregiverAudioSummary
-            medicines={allDetectedBrands}
-            safetyStatus={combinedAnalysis.safety_status}
-            interactionsCount={combinedAnalysis.total_interactions_found || 0}
-            interactions={combinedAnalysis.interactions || []}
-          />
+          <div className="print:hidden">
+            <CaregiverAudioSummary
+              medicines={allDetectedBrands}
+              safetyStatus={combinedAnalysis.safety_status}
+              interactionsCount={combinedAnalysis.total_interactions_found || 0}
+              interactions={combinedAnalysis.interactions || []}
+            />
+          </div>
         </div>
       )}
 
@@ -277,7 +287,7 @@ export const PrescriptionScannerPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleRemovePrescription(rx.id)}
-                className="text-xs text-slate-500 hover:text-rose-600 underline cursor-pointer"
+                className="text-xs text-slate-500 hover:text-rose-600 underline cursor-pointer print:hidden"
               >
                 {t.removeBtn}
               </button>
