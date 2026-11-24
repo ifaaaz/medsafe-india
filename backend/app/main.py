@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import engine, Base
 from app.models.history import UserMedicationHistory
-from app.api.v1.endpoints import medicines, interactions, ocr, history, generic_saver, lifestyle_warnings
+from app.api.v1.endpoints import medicines, interactions, history, generic_saver, lifestyle_warnings, prescription
 
 Base.metadata.create_all(bind=engine)
 
@@ -25,7 +25,7 @@ app.add_middleware(
 
 app.include_router(medicines.router)
 app.include_router(interactions.router)
-app.include_router(ocr.router)
+app.include_router(prescription.router)
 app.include_router(history.router)
 app.include_router(generic_saver.router)
 app.include_router(lifestyle_warnings.router)

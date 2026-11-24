@@ -15,7 +15,7 @@ if os.path.exists(r"C:\Program Files\Tesseract-OCR\tesseract.exe"):
 UPLOAD_DIR = "app/static/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png"}
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 MAX_FILE_SIZE_MB = 5
 
 
@@ -42,7 +42,7 @@ def preprocess_image(image_path: str) -> str:
         # Auto-invert dark-background screenshots (white text on black)
         if img.getextrema()[0] < 30 and sum(img.getdata()) / (img.width * img.height) < 110:
             img = ImageOps.invert(img)
-        # Upscale low-res images 2x for crisp Tesseract OCR
+        # Upscale low-res images 2x for crisp OCR
         if img.width < 1000:
             img = img.resize((img.width * 2, img.height * 2), Image.Resampling.LANCZOS)
         enhancer = ImageEnhance.Contrast(img)
@@ -57,13 +57,18 @@ def preprocess_image(image_path: str) -> str:
 
 def lookup_rxnorm_and_openfda(query_name: str):
     """Automatically resolve unknown brand or generic names using NIH RxNorm + OpenFDA."""
-    clean_query = re.sub(r'\b\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml)?\b', '', query_name, flags=re.IGNORECASE).strip()
+    clean_query = re.sub(
+        r'\b\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml)?\b', '', query_name, flags=re.IGNORECASE
+    ).strip()
     if not clean_query:
         return None, None
 
     # 1. Try OpenFDA Drug Label API
     try:
-        url = f'https://api.fda.gov/drug/label.json?search=openfda.brand_name:"{clean_query}"+openfda.generic_name:"{clean_query}"&limit=1'
+        url = (
+            f'https://api.fda.gov/drug/label.json?search=openfda.brand_name:"{clean_query}"'
+            f'+openfda.generic_name:"{clean_query}"&limit=1'
+        )
         res = requests.get(url, timeout=2.5)
         if res.status_code == 200:
             results = res.json().get("results", [])
@@ -80,7 +85,10 @@ def lookup_rxnorm_and_openfda(query_name: str):
 
     # 2. Try NIH RxNorm Approximate Term API (handles international/Indian spellings & salts)
     try:
-        rx_url = f"https://rxnav.nlm.nih.gov/REST/approximateTerm.json?term={requests.utils.quote(clean_query)}&maxEntries=1"
+        rx_url = (
+            f"https://rxnav.nlm.nih.gov/REST/approximateTerm.json?"
+            f"term={requests.utils.quote(clean_query)}&maxEntries=1"
+        )
         rx_res = requests.get(rx_url, timeout=2.5)
         if rx_res.status_code == 200:
             candidates = rx_res.json().get("approximateGroup", {}).get("candidate", [])
@@ -177,9 +185,13 @@ def extract_active_salts(generic_name: str, fallback_brand: str) -> list[str]:
     parts = [p.strip() for p in source.split("+") if p.strip()]
     cleaned = []
     for p in parts:
-        # Remove parenthetical notes & salt forms for clean interaction matching
         base = re.sub(r'\(.*?\)', '', p)
-        base = re.sub(r'\b(sodium|hydrochloride|hcl|citrate|potassium|trihydrate)\b', '', base, flags=re.IGNORECASE).strip()
+        base = re.sub(
+            r'\b(sodium|hydrochloride|hcl|citrate|potassium|trihydrate)\b',
+            '',
+            base,
+            flags=re.IGNORECASE,
+        ).strip()
         if base:
             cleaned.append(base)
     return cleaned if cleaned else [fallback_brand]
@@ -271,12 +283,26 @@ def process_prescription_image(db: Session, file: UploadFile):
     file_path = validate_and_save_image(file)
 
     extracted_text = ""
+    processed_path = preprocess_image(file_path)
     try:
-        processed_path = preprocess_image(file_path)
         img = Image.open(processed_path)
         extracted_text = pytesseract.image_to_string(img, config="--psm 6").strip()
     except Exception:
-        pass
+        # Cloud OCR fallback when Linux hosting container lacks tesseract-ocr binary
+        try:
+            with open(processed_path, "rb") as img_file:
+                ocr_res = requests.post(
+                    "https://api.ocr.space/parse/image",
+                    files={"file": img_file},
+                    data={"apikey": "helloworld", "language": "eng", "OCREngine": "2"},
+                    timeout=8,
+                )
+                if ocr_res.status_code == 200:
+                    parsed = ocr_res.json().get("ParsedResults", [])
+                    if parsed:
+                        extracted_text = parsed[0].get("ParsedText", "").strip()
+        except Exception:
+            pass
 
     if not extracted_text or len(extracted_text) < 3:
         extracted_text = file.filename.replace("_", " ").replace(".png", "").replace(".jpg", "")
